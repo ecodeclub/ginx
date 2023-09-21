@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/ecodeclub/ginx/ioc"
 )
 
 func TestRedisSlidingWindowLimiter_Limit(t *testing.T) {
-	r := NewRedisSlidingWindowLimiter(ioc.InitRedis(), 500*time.Millisecond, 1)
+	r := NewRedisSlidingWindowLimiter(initRedis(), 500*time.Millisecond, 1)
 	tests := []struct {
 		name     string
 		ctx      context.Context
@@ -55,4 +54,11 @@ func TestRedisSlidingWindowLimiter_Limit(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func initRedis() redis.Cmdable {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:16379",
+	})
+	return redisClient
 }

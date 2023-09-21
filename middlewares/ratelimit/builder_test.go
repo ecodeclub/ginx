@@ -10,9 +10,61 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/ecodeclub/ginx/ratelimit"
-	limitmocks "github.com/ecodeclub/ginx/ratelimit/mocks"
+	"github.com/ecodeclub/ginx/internal/ratelimit"
+	"github.com/ecodeclub/ginx/internal/ratelimit/mocks"
 )
+
+func TestBuilder_SetKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		reqBuilder func(t *testing.T) *http.Request
+		fn         func(*gin.Context) string
+		want       string
+	}{
+		{
+			name: "设置key成功",
+			reqBuilder: func(t *testing.T) *http.Request {
+				req, err := http.NewRequest(http.MethodGet, "", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.RemoteAddr = "127.0.0.1:80"
+				return req
+			},
+			fn: func(ctx *gin.Context) string {
+				return "test"
+			},
+			want: "test",
+		},
+		{
+			name: "默认key",
+			reqBuilder: func(t *testing.T) *http.Request {
+				req, err := http.NewRequest(http.MethodGet, "", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.RemoteAddr = "127.0.0.1:80"
+				return req
+			},
+			want: "ip-limiter:127.0.0.1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := NewBuilder(nil)
+			if tt.fn != nil {
+				b.SetKey(tt.fn)
+			}
+
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			req := tt.reqBuilder(t)
+			ctx.Request = req
+
+			assert.Equal(t, tt.want, b.genKeyFn(ctx))
+		})
+	}
+}
 
 func TestBuilder_Build(t *testing.T) {
 	const limitURL = "/limit"
@@ -26,8 +78,7 @@ func TestBuilder_Build(t *testing.T) {
 		wantCode int
 	}{
 		{
-			// name: "不限流",
-			name: "no_limit",
+			name: "不限流",
 			mock: func(ctrl *gomock.Controller) ratelimit.Limiter {
 				limiter := limitmocks.NewMockLimiter(ctrl)
 				limiter.EXPECT().Limit(gomock.Any(), gomock.Any()).
@@ -44,8 +95,7 @@ func TestBuilder_Build(t *testing.T) {
 			wantCode: http.StatusOK,
 		},
 		{
-			// name: "限流",
-			name: "limit",
+			name: "限流",
 			mock: func(ctrl *gomock.Controller) ratelimit.Limiter {
 				limiter := limitmocks.NewMockLimiter(ctrl)
 				limiter.EXPECT().Limit(gomock.Any(), gomock.Any()).
@@ -62,8 +112,7 @@ func TestBuilder_Build(t *testing.T) {
 			wantCode: http.StatusTooManyRequests,
 		},
 		{
-			// name: "系统错误",
-			name: "system_error",
+			name: "系统错误",
 			mock: func(ctrl *gomock.Controller) ratelimit.Limiter {
 				limiter := limitmocks.NewMockLimiter(ctrl)
 				limiter.EXPECT().Limit(gomock.Any(), gomock.Any()).
@@ -86,18 +135,15 @@ func TestBuilder_Build(t *testing.T) {
 			defer ctrl.Finish()
 			svc := NewBuilder(tt.mock(ctrl))
 
-			// 注册路由
 			server := gin.Default()
 			server.Use(svc.Build())
 			svc.RegisterRoutes(server)
 
-			// 准备请求
 			req := tt.reqBuilder(t)
-			// 准备记录响应
 			recorder := httptest.NewRecorder()
-			// 执行
+
 			server.ServeHTTP(recorder, req)
-			// 断言
+
 			assert.Equal(t, tt.wantCode, recorder.Code)
 		})
 	}
@@ -127,6 +173,7 @@ func TestBuilder_limit(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				req.RemoteAddr = "127.0.0.1:80"
 				return req
 			},
 			want: false,
@@ -141,10 +188,10 @@ func TestBuilder_limit(t *testing.T) {
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "", nil)
-				req.Header.Set("X-Real-IP", "127.0.0.1")
 				if err != nil {
 					t.Fatal(err)
 				}
+				req.RemoteAddr = "127.0.0.1:80"
 				return req
 			},
 			want: true,
@@ -159,10 +206,10 @@ func TestBuilder_limit(t *testing.T) {
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "", nil)
-				req.Header.Set("X-Real-IP", "127.0.0.1")
 				if err != nil {
 					t.Fatal(err)
 				}
+				req.RemoteAddr = "127.0.0.1:80"
 				return req
 			},
 			want:    false,

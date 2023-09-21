@@ -1,30 +1,35 @@
 package ratelimit
 
 import (
-	_ "embed"
-	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ecodeclub/ginx/ratelimit"
+	"github.com/ecodeclub/ginx/internal/ratelimit"
 )
 
 type Builder struct {
-	prefix  string
-	limiter ratelimit.Limiter
+	limiter  ratelimit.Limiter
+	genKeyFn func(*gin.Context) string
 }
 
 func NewBuilder(limiter ratelimit.Limiter) *Builder {
 	return &Builder{
-		prefix:  "ip-limiter",
 		limiter: limiter,
+		genKeyFn: func(ctx *gin.Context) string {
+			var b strings.Builder
+			b.WriteString("ip-limiter")
+			b.WriteString(":")
+			b.WriteString(ctx.ClientIP())
+			return b.String()
+		},
 	}
 }
 
-func (b *Builder) Prefix(prefix string) *Builder {
-	b.prefix = prefix
+func (b *Builder) SetKey(fn func(*gin.Context) string) *Builder {
+	b.genKeyFn = fn
 	return b
 }
 
@@ -46,6 +51,5 @@ func (b *Builder) Build() gin.HandlerFunc {
 }
 
 func (b *Builder) limit(ctx *gin.Context) (bool, error) {
-	key := fmt.Sprintf("%s:%s", b.prefix, ctx.ClientIP())
-	return b.limiter.Limit(ctx, key)
+	return b.limiter.Limit(ctx, b.genKeyFn(ctx))
 }

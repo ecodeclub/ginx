@@ -5,10 +5,10 @@
 package limitmocks
 
 import (
-	context "context"
-	reflect "reflect"
+	"context"
+	"reflect"
 
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 )
 
 // MockLimiter is a mock of Limiter interface.

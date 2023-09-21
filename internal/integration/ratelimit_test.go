@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,9 +14,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ecodeclub/ginx/ioc"
+	"github.com/ecodeclub/ginx/internal/ratelimit"
 	limit "github.com/ecodeclub/ginx/middlewares/ratelimit"
-	"github.com/ecodeclub/ginx/ratelimit"
 )
 
 func TestBuilder_e2e_RateLimit(t *testing.T) {
@@ -23,8 +23,8 @@ func TestBuilder_e2e_RateLimit(t *testing.T) {
 		ip       = "127.0.0.1"
 		limitURL = "/limit"
 	)
-	rdb := ioc.InitRedis()
-	server := InitWebServer(rdb)
+	rdb := initRedis()
+	server := initWebServer(rdb)
 	RegisterRoutes(server)
 
 	tests := []struct {
@@ -42,7 +42,7 @@ func TestBuilder_e2e_RateLimit(t *testing.T) {
 			name:   "不限流",
 			before: func(t *testing.T) {},
 			after: func(t *testing.T) {
-				rdb.Del(context.Background(), "ip-limiter")
+				rdb.Del(context.Background(), fmt.Sprintf("ip-limiter:%s", ip))
 			},
 			wantCode: http.StatusOK,
 		},
@@ -50,13 +50,13 @@ func TestBuilder_e2e_RateLimit(t *testing.T) {
 			name: "限流",
 			before: func(t *testing.T) {
 				req, err := http.NewRequest(http.MethodGet, limitURL, nil)
-				req.Header.Set("X-Real-IP", ip)
+				req.RemoteAddr = ip + ":80"
 				assert.NoError(t, err)
 				recorder := httptest.NewRecorder()
 				server.ServeHTTP(recorder, req)
 			},
 			after: func(t *testing.T) {
-				rdb.Del(context.Background(), "ip-limiter")
+				rdb.Del(context.Background(), fmt.Sprintf("ip-limiter:%s", ip))
 			},
 			wantCode: http.StatusTooManyRequests,
 		},
@@ -66,7 +66,7 @@ func TestBuilder_e2e_RateLimit(t *testing.T) {
 			defer tt.after(t)
 			tt.before(t)
 			req, err := http.NewRequest(http.MethodGet, limitURL, nil)
-			req.Header.Set("X-Real-IP", ip)
+			req.RemoteAddr = ip + ":80"
 			assert.NoError(t, err)
 
 			recorder := httptest.NewRecorder()
@@ -84,7 +84,14 @@ func RegisterRoutes(server *gin.Engine) {
 	})
 }
 
-func InitWebServer(cmd redis.Cmdable) *gin.Engine {
+func initRedis() redis.Cmdable {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:16379",
+	})
+	return redisClient
+}
+
+func initWebServer(cmd redis.Cmdable) *gin.Engine {
 	server := gin.Default()
 	limiter := ratelimit.NewRedisSlidingWindowLimiter(cmd, 500*time.Millisecond, 1)
 	server.Use(limit.NewBuilder(limiter).Build())
