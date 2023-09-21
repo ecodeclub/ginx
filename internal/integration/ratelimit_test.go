@@ -14,7 +14,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ecodeclub/ginx/internal/ratelimit"
 	limit "github.com/ecodeclub/ginx/middlewares/ratelimit"
 )
 
@@ -93,7 +92,7 @@ func initRedis() redis.Cmdable {
 
 func initWebServer(cmd redis.Cmdable) *gin.Engine {
 	server := gin.Default()
-	limiter := ratelimit.NewRedisSlidingWindowLimiter(cmd, 500*time.Millisecond, 1)
+	limiter := limit.NewRedisSlidingWindowLimiter(cmd, 500*time.Millisecond, 1)
 	server.Use(limit.NewBuilder(limiter).Build())
 	return server
 }

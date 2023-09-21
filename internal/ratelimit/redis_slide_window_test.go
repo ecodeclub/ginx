@@ -10,7 +10,11 @@ import (
 )
 
 func TestRedisSlidingWindowLimiter_Limit(t *testing.T) {
-	r := NewRedisSlidingWindowLimiter(initRedis(), 500*time.Millisecond, 1)
+	r := &RedisSlidingWindowLimiter{
+		Cmd:      initRedis(),
+		Interval: 500 * time.Millisecond,
+		Rate:     1,
+	}
 	tests := []struct {
 		name     string
 		ctx      context.Context

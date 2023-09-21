@@ -14,7 +14,7 @@ import (
 	"github.com/ecodeclub/ginx/internal/ratelimit/mocks"
 )
 
-func TestBuilder_SetKey(t *testing.T) {
+func TestBuilder_SetKeyGenFunc(t *testing.T) {
 	tests := []struct {
 		name       string
 		reqBuilder func(t *testing.T) *http.Request
@@ -53,7 +53,7 @@ func TestBuilder_SetKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := NewBuilder(nil)
 			if tt.fn != nil {
-				b.SetKey(tt.fn)
+				b.SetKeyGenFunc(tt.fn)
 			}
 
 			recorder := httptest.NewRecorder()
