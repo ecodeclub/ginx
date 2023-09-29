@@ -18,8 +18,14 @@ type authHandler[T jwt.Claims] struct {
 	token               token.Token[T]
 }
 
+// NewAuthHandler
+// allowTokenHeader: 默认使用 authorization 为认证请求头.
+// bearerPrefix: 默认使用 Bearer 拼接 token.
+// claimsCTXKey: 默认使用 claims 为设置到 gin.Context 的key
+// exposeAccessHeader: 默认使用 x-access-token 为暴露外部的资源请求头.
+// exposeRefreshHeader: 默认使用 x-refresh-token 为暴露外部的刷新请求头.
 func NewAuthHandler[T jwt.Claims](token token.Token[T],
-	opts ...authHdlOption[T]) Handler[T] {
+	opts ...AuthHdlOption[T]) Handler[T] {
 	dOpts := defaultAuthHdlOption[T]()
 	dOpts.token = token
 
@@ -30,7 +36,7 @@ func NewAuthHandler[T jwt.Claims](token token.Token[T],
 	return &dOpts
 }
 
-type authHdlOption[T jwt.Claims] interface {
+type AuthHdlOption[T jwt.Claims] interface {
 	apply(*authHandler[T])
 }
 
@@ -59,31 +65,31 @@ func defaultAuthHdlOption[T jwt.Claims]() authHandler[T] {
 	}
 }
 
-func WithAllowTokenHeader[T jwt.Claims](header string) authHdlOption[T] {
+func WithAllowTokenHeader[T jwt.Claims](header string) AuthHdlOption[T] {
 	return newFuncAuthHdlOption[T](func(h *authHandler[T]) {
 		h.allowTokenHeader = header
 	})
 }
 
-func WithBearerPrefix[T jwt.Claims](prefix string) authHdlOption[T] {
+func WithBearerPrefix[T jwt.Claims](prefix string) AuthHdlOption[T] {
 	return newFuncAuthHdlOption[T](func(h *authHandler[T]) {
 		h.bearerPrefix = prefix
 	})
 }
 
-func WithClaimsCTXKey[T jwt.Claims](key string) authHdlOption[T] {
+func WithClaimsCTXKey[T jwt.Claims](key string) AuthHdlOption[T] {
 	return newFuncAuthHdlOption[T](func(h *authHandler[T]) {
 		h.claimsCTXKey = key
 	})
 }
 
-func WithExposeAccessHeader[T jwt.Claims](header string) authHdlOption[T] {
+func WithExposeAccessHeader[T jwt.Claims](header string) AuthHdlOption[T] {
 	return newFuncAuthHdlOption[T](func(h *authHandler[T]) {
 		h.exposeAccessHeader = header
 	})
 }
 
-func WithExposeRefreshHeader[T jwt.Claims](header string) authHdlOption[T] {
+func WithExposeRefreshHeader[T jwt.Claims](header string) AuthHdlOption[T] {
 	return newFuncAuthHdlOption[T](func(h *authHandler[T]) {
 		h.exposeRefreshHeader = header
 	})

@@ -26,14 +26,14 @@ func TestNewAuthHandler(t *testing.T) {
 	type testCase[T jwt.Claims] struct {
 		name  string
 		token token.Token[T]
-		opts  []authHdlOption[T]
+		opts  []AuthHdlOption[T]
 		want  Handler[T]
 	}
 	tests := []testCase[myClaims]{
 		{
 			name:  "normal_default_creates",
 			token: jwtToken,
-			opts:  []authHdlOption[myClaims]{},
+			opts:  []AuthHdlOption[myClaims]{},
 			want: &authHandler[myClaims]{
 				allowTokenHeader:    "authorization",
 				bearerPrefix:        "Bearer",
