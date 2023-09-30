@@ -8,8 +8,8 @@ import (
 	"github.com/ecodeclub/ginx/internal/ratelimit"
 )
 
-// NewRedisSlidingWindowLimiter 创建一个基于 redis 的滑动窗口限流器.
-// cmd: 可传入 redis 的客户端
+// NewRedisSlidingWindowLimiter 创建一个基于 redislimit 的滑动窗口限流器.
+// cmd: 可传入 redislimit 的客户端
 // interval: 窗口大小
 // rate: 阈值
 // 表示: 在 interval 内允许 rate 个请求
