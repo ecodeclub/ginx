@@ -24,7 +24,7 @@ func TestBuilder_e2e_ActiveLocalLimit(t *testing.T) {
 		name             string
 		maxCount         int64
 		getReq           func() *http.Request
-		createMiddleware func() gin.HandlerFunc
+		createMiddleware func(maxActive int64) gin.HandlerFunc
 		before           func(server *gin.Engine)
 
 		after func()
@@ -36,8 +36,8 @@ func TestBuilder_e2e_ActiveLocalLimit(t *testing.T) {
 		{
 			name: "开启限流,LocalLimit正常操作",
 
-			createMiddleware: func() gin.HandlerFunc {
-				return locallimit.NewLocalActiveLimit(1).SetStatue(true).Build()
+			createMiddleware: func(maxActive int64) gin.HandlerFunc {
+				return locallimit.NewLocalActiveLimit(maxActive).Build()
 			},
 			getReq: func() *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
@@ -57,8 +57,8 @@ func TestBuilder_e2e_ActiveLocalLimit(t *testing.T) {
 		{
 			name: "开启限流,LocalLimit 有一个人很久没出来,新请求被限流",
 
-			createMiddleware: func() gin.HandlerFunc {
-				return locallimit.NewLocalActiveLimit(1).SetStatue(true).Build()
+			createMiddleware: func(maxActive int64) gin.HandlerFunc {
+				return locallimit.NewLocalActiveLimit(maxActive).Build()
 			},
 			getReq: func() *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
@@ -82,8 +82,8 @@ func TestBuilder_e2e_ActiveLocalLimit(t *testing.T) {
 		{
 			name: "开启限流,LocalLimit 有一个人很久没出来,等待前面的请求退出后,成功通过",
 
-			createMiddleware: func() gin.HandlerFunc {
-				return locallimit.NewLocalActiveLimit(1).SetStatue(true).Build()
+			createMiddleware: func(maxActive int64) gin.HandlerFunc {
+				return locallimit.NewLocalActiveLimit(maxActive).Build()
 			},
 			getReq: func() *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
@@ -95,7 +95,6 @@ func TestBuilder_e2e_ActiveLocalLimit(t *testing.T) {
 				require.NoError(t, err)
 				resp := httptest.NewRecorder()
 				server.ServeHTTP(resp, req)
-				fmt.Println("阻塞的人出来了...")
 				assert.Equal(t, 200, resp.Code)
 			},
 			after: func() {
@@ -105,81 +104,13 @@ func TestBuilder_e2e_ActiveLocalLimit(t *testing.T) {
 			maxCount: 1,
 			wantCode: http.StatusOK,
 		},
-		{
-			name: "关闭限流,请求正常执行",
-			createMiddleware: func() gin.HandlerFunc {
-				return locallimit.NewLocalActiveLimit(1).SetStatue(false).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
-				require.NoError(t, err)
-				return req
-			},
-			before: func(server *gin.Engine) {
-
-			},
-			after: func() {
-
-			},
-
-			maxCount: 1,
-			wantCode: 200,
-		},
-		{
-			name: "关闭限流,LocalLimit 有一个人很久没出来,新请求正常返回",
-			createMiddleware: func() gin.HandlerFunc {
-				return locallimit.NewLocalActiveLimit(1).SetStatue(false).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
-				require.NoError(t, err)
-				return req
-			},
-			before: func(server *gin.Engine) {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit3", nil)
-				require.NoError(t, err)
-				resp := httptest.NewRecorder()
-				server.ServeHTTP(resp, req)
-				assert.Equal(t, 200, resp.Code)
-			},
-			after: func() {
-
-			},
-
-			maxCount: 1,
-			wantCode: 200,
-		},
-		{
-			name: "关闭限流,LocalLimit 有一个人很久没出来,新请求正常返回",
-			createMiddleware: func() gin.HandlerFunc {
-				return locallimit.NewLocalActiveLimit(1).SetStatue(false).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
-				require.NoError(t, err)
-				return req
-			},
-			before: func(server *gin.Engine) {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit3", nil)
-				require.NoError(t, err)
-				resp := httptest.NewRecorder()
-				server.ServeHTTP(resp, req)
-				assert.Equal(t, 200, resp.Code)
-			},
-			after: func() {
-
-			},
-
-			maxCount: 1,
-			wantCode: 200,
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
 			server := gin.Default()
-			server.Use(tc.createMiddleware())
+			server.Use(tc.createMiddleware(tc.maxCount))
 			server.GET("/activelimit", func(ctx *gin.Context) {
 				ctx.Status(http.StatusOK)
 			})
@@ -226,7 +157,7 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 		maxCount         int64
 		key              string
 		getReq           func() *http.Request
-		createMiddleware func() gin.HandlerFunc
+		createMiddleware func(maxActive int64, key string) gin.HandlerFunc
 		before           func(server *gin.Engine, key string)
 
 		interval time.Duration
@@ -242,8 +173,8 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 		{
 			name: "开启限流,RedisLimit正常操作",
 
-			createMiddleware: func() gin.HandlerFunc {
-				return redislimit.NewRedisActiveLimit(redisClient, 1, "test").SetStatue(true).Build()
+			createMiddleware: func(maxActive int64, key string) gin.HandlerFunc {
+				return redislimit.NewRedisActiveLimit(redisClient, maxActive, key).Build()
 			},
 			getReq: func() *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
@@ -269,8 +200,8 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 		{
 			name: "开启限流,RedisLimit,有一个人长时间没退出,导致限流",
 
-			createMiddleware: func() gin.HandlerFunc {
-				return redislimit.NewRedisActiveLimit(redisClient, 1, "test").SetStatue(true).Build()
+			createMiddleware: func(maxActive int64, key string) gin.HandlerFunc {
+				return redislimit.NewRedisActiveLimit(redisClient, maxActive, key).Build()
 			},
 			getReq: func() *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
@@ -300,8 +231,8 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 		{
 			name: "开启限流,RedisLimit,有一个人长时间没退出,等待前面退出后,正常请求....",
 
-			createMiddleware: func() gin.HandlerFunc {
-				return redislimit.NewRedisActiveLimit(redisClient, 1, "test").SetStatue(true).Build()
+			createMiddleware: func(maxActive int64, key string) gin.HandlerFunc {
+				return redislimit.NewRedisActiveLimit(redisClient, maxActive, key).Build()
 			},
 			getReq: func() *http.Request {
 				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
@@ -326,58 +257,6 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 			afterCount: 0,
 			afterErr:   nil,
 		},
-		{
-			name: "关闭限流,RedisLimit, 请求正常退出",
-
-			createMiddleware: func() gin.HandlerFunc {
-				return redislimit.NewRedisActiveLimit(redisClient, 1, "test").SetStatue(false).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
-				require.NoError(t, err)
-				return req
-			},
-			before: func(server *gin.Engine, key string) {
-
-				req, err := http.NewRequest(http.MethodGet, "/activelimit3", nil)
-				require.NoError(t, err)
-				resp := httptest.NewRecorder()
-				server.ServeHTTP(resp, req)
-				assert.Equal(t, 200, resp.Code)
-			},
-			after: func(key string) (int64, error) {
-				return 0, nil
-			},
-			maxCount: 1,
-			key:      "test",
-			wantCode: http.StatusOK,
-		},
-		{
-			name: "关闭限流,RedisLimit,,有一个人长时间没退出,不会限流",
-
-			createMiddleware: func() gin.HandlerFunc {
-				return redislimit.NewRedisActiveLimit(redisClient, 1, "test").SetStatue(false).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
-				require.NoError(t, err)
-				return req
-			},
-			before: func(server *gin.Engine, key string) {
-
-				req, err := http.NewRequest(http.MethodGet, "/activelimit3", nil)
-				require.NoError(t, err)
-				resp := httptest.NewRecorder()
-				server.ServeHTTP(resp, req)
-				assert.Equal(t, 200, resp.Code)
-			},
-			after: func(key string) (int64, error) {
-				return 0, nil
-			},
-			maxCount: 1,
-			key:      "test",
-			wantCode: http.StatusOK,
-		},
 	}
 
 	for _, tc := range testCases {
@@ -388,7 +267,7 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			server := gin.Default()
-			server.Use(tc.createMiddleware())
+			server.Use(tc.createMiddleware(tc.maxCount, tc.key))
 			server.GET("/activelimit", func(ctx *gin.Context) {
 				ctx.Status(http.StatusOK)
 			})
