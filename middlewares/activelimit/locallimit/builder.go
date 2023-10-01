@@ -28,12 +28,11 @@ func (a *LocalActiveLimit) SetMaxActive(maxActive int64) *LocalActiveLimit {
 
 func (a *LocalActiveLimit) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		//直接减一操作 下面必加一成功
+		current := a.countActive.Add(1)
 		defer func() {
 			a.countActive.Sub(1)
 		}()
-		// 并直接占坑成功
-		if a.countActive.Add(1) <= a.MaxActive.Load() {
+		if current <= a.MaxActive.Load() {
 			ctx.Next()
 		} else {
 			ctx.AbortWithStatus(http.StatusTooManyRequests)
