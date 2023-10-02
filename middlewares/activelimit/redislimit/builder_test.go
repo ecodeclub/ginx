@@ -3,7 +3,7 @@ package redislimit
 import (
 	"context"
 	"errors"
-	redismocks "github.com/ecodeclub/ginx/internal/activelimit/mocks"
+	redismocks "github.com/ecodeclub/ginx/internal/mocks"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
