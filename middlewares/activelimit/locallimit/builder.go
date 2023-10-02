@@ -8,7 +8,7 @@ import (
 
 type LocalActiveLimit struct {
 	//最大限制个数
-	MaxActive *atomic.Int64
+	maxActive *atomic.Int64
 	//当前活跃个数
 	countActive *atomic.Int64
 }
@@ -16,13 +16,13 @@ type LocalActiveLimit struct {
 // NewLocalActiveLimit 全局限流
 func NewLocalActiveLimit(maxActive int64) *LocalActiveLimit {
 	return &LocalActiveLimit{
-		MaxActive:   atomic.NewInt64(maxActive),
+		maxActive:   atomic.NewInt64(maxActive),
 		countActive: atomic.NewInt64(0),
 	}
 }
 
 func (a *LocalActiveLimit) SetMaxActive(maxActive int64) *LocalActiveLimit {
-	a.MaxActive.Store(maxActive)
+	a.maxActive.Store(maxActive)
 	return a
 }
 
@@ -32,7 +32,7 @@ func (a *LocalActiveLimit) Build() gin.HandlerFunc {
 		defer func() {
 			a.countActive.Sub(1)
 		}()
-		if current <= a.MaxActive.Load() {
+		if current <= a.maxActive.Load() {
 			ctx.Next()
 		} else {
 			ctx.AbortWithStatus(http.StatusTooManyRequests)

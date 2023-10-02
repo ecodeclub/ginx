@@ -10,7 +10,7 @@ import (
 
 type RedisActiveLimit struct {
 	//最大限制个数
-	MaxActive *atomic.Int64
+	maxActive *atomic.Int64
 
 	//用来记录连接数的key
 	key   string
@@ -21,7 +21,7 @@ type RedisActiveLimit struct {
 // NewRedisActiveLimit 全局限流
 func NewRedisActiveLimit(cmd redis.Cmdable, maxActive int64, key string) *RedisActiveLimit {
 	return &RedisActiveLimit{
-		MaxActive: atomic.NewInt64(maxActive),
+		maxActive: atomic.NewInt64(maxActive),
 		key:       key,
 		cmd:       cmd,
 		logFn: func(msg any, args ...any) {
@@ -31,7 +31,7 @@ func NewRedisActiveLimit(cmd redis.Cmdable, maxActive int64, key string) *RedisA
 }
 
 func (a *RedisActiveLimit) SetMaxActive(maxActive int64) *RedisActiveLimit {
-	a.MaxActive.Store(maxActive)
+	a.maxActive.Store(maxActive)
 	return a
 }
 
@@ -54,7 +54,7 @@ func (a *RedisActiveLimit) Build() gin.HandlerFunc {
 				a.logFn("redis 减一操作", err)
 			}
 		}()
-		if currentCount <= a.MaxActive.Load() {
+		if currentCount <= a.maxActive.Load() {
 			ctx.Next()
 		} else {
 			a.logFn("web server ", "限流中..")
