@@ -12,7 +12,7 @@ import (
 // cmd: 可传入 redis 的客户端
 // interval: 窗口大小
 // rate: 阈值
-// 表示: 在 interval 内允许 rate 个请求W
+// 表示: 在 interval 内允许 rate 个请求
 // 示例: 1s 内允许 3000 个请求
 func NewRedisSlidingWindowLimiter(cmd redis.Cmdable,
 	interval time.Duration, rate int) ratelimit.Limiter {
