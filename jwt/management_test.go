@@ -45,93 +45,6 @@ var (
 	)
 )
 
-func TestManagement_Middleware(t *testing.T) {
-	type testCase[T any] struct {
-		name       string
-		m          *Management[T]
-		reqBuilder func(t *testing.T) *http.Request
-		wantCode   int
-	}
-	tests := []testCase[data]{
-		{
-			// 验证失败
-			name: "verify_failed",
-			m: NewManagement[data](defaultOption,
-				WithIgnorePath[data](StaticIgnorePaths("/login"))),
-			reqBuilder: func(t *testing.T) *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/", nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				req.Header.Add("authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6IjEifSwiZXhwIjoxNjk1NTcxODAwLCJpYXQiOjE2OTU1NzEyMDB9.RMpM5YNgxl9OtCy4lt_JRxv6k8s6plCkthnAV-vbXEQ")
-				return req
-			},
-			wantCode: http.StatusUnauthorized,
-		},
-		{
-			// 提取 token 失败
-			name: "extract_token_failed",
-			m: NewManagement[data](defaultOption,
-				WithIgnorePath[data](StaticIgnorePaths("/login"))),
-			reqBuilder: func(t *testing.T) *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/", nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				req.Header.Add("authorization", "Bearer ")
-				return req
-			},
-			wantCode: http.StatusUnauthorized,
-		},
-		{
-			// 无需认证直接通过
-			name: "pass_without_authentication",
-			m: NewManagement[data](defaultOption,
-				WithIgnorePath[data](StaticIgnorePaths("/login"))),
-			reqBuilder: func(t *testing.T) *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/login", nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return req
-			},
-			wantCode: http.StatusOK,
-		},
-		{
-			// 验证通过
-			name: "pass_the_verification",
-			m: NewManagement[data](defaultOption,
-				WithIgnorePath[data](StaticIgnorePaths("/login")),
-				WithNowFunc[data](func() time.Time {
-					return time.UnixMilli(1695571500000)
-				}),
-			),
-			reqBuilder: func(t *testing.T) *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/", nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				req.Header.Add("authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6IjEifSwiZXhwIjoxNjk1NTcxODAwLCJpYXQiOjE2OTU1NzEyMDB9.RMpM5YNgxl9OtCy4lt_JRxv6k8s6plCkthnAV-vbXEQ")
-				return req
-			},
-			wantCode: http.StatusOK,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := gin.Default()
-			server.Use(tt.m.Middleware())
-			tt.m.registerRoutes(server)
-
-			req := tt.reqBuilder(t)
-			recorder := httptest.NewRecorder()
-
-			server.ServeHTTP(recorder, req)
-			assert.Equal(t, tt.wantCode, recorder.Code)
-		})
-	}
-}
-
 func TestManagement_Refresh(t *testing.T) {
 	type testCase[T any] struct {
 		name             string
@@ -218,7 +131,7 @@ func TestManagement_Refresh(t *testing.T) {
 			// 生成资源令牌失败
 			name: "gen_access_token_failed",
 			m: NewManagement[data](
-				&Options{
+				Options{
 					Expire:        10 * time.Minute,
 					EncryptionKey: encryptionKey,
 					DecryptKey:    encryptionKey,
@@ -401,16 +314,19 @@ func TestManagement_GenerateRefreshToken(t *testing.T) {
 	}
 	tests := []testCase[data]{
 		{
-			name:              "normal",
-			refreshJWTOptions: NewOptions(24*60*time.Minute, "refresh sign key"),
-			data:              data{Foo: "1"},
-			want:              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6IjEifSwiZXhwIjoxNjk1NjU3NjAwLCJpYXQiOjE2OTU1NzEyMDB9.y2AQ98i0le5AbmJFgYCAfCVAphd_9NecmHdhtehMSZE",
+			name: "normal",
+			refreshJWTOptions: func() *Options {
+				opt := NewOptions(24*60*time.Minute, "refresh sign key")
+				return &opt
+			}(),
+			data: data{Foo: "1"},
+			want: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6IjEifSwiZXhwIjoxNjk1NjU3NjAwLCJpYXQiOjE2OTU1NzEyMDB9.y2AQ98i0le5AbmJFgYCAfCVAphd_9NecmHdhtehMSZE",
 		},
 		{
 			name:    "mistake",
 			data:    data{Foo: "1"},
 			want:    "",
-			wantErr: ErrEmptyRefreshOpts,
+			wantErr: errEmptyRefreshOpts,
 		},
 	}
 	for _, tt := range tests {
@@ -424,7 +340,7 @@ func TestManagement_GenerateRefreshToken(t *testing.T) {
 }
 
 func TestManagement_VerifyRefreshToken(t *testing.T) {
-	defaultRefOpts := &Options{
+	defaultRefOpts := Options{
 		Expire:        24 * 60 * time.Minute,
 		EncryptionKey: "refresh sign key",
 		DecryptKey:    "refresh sign key",
@@ -502,7 +418,7 @@ func TestManagement_VerifyRefreshToken(t *testing.T) {
 				}),
 			),
 			token:   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImZvbyI6IjEifSwiZXhwIjoxNjk1NjU3NjAwLCJpYXQiOjE2OTU1NzEyMDB9.y2AQ98i0le5AbmJFgYCAfCVAphd_9NecmHdhtehMSZE",
-			wantErr: ErrEmptyRefreshOpts,
+			wantErr: errEmptyRefreshOpts,
 		},
 	}
 	for _, tt := range tests {
@@ -599,7 +515,7 @@ func TestManagement_extractTokenString(t *testing.T) {
 func TestNewManagement(t *testing.T) {
 	type testCase[T any] struct {
 		name             string
-		accessJWTOptions *Options
+		accessJWTOptions Options
 		wantPanic        bool
 	}
 	tests := []testCase[data]{
@@ -607,11 +523,6 @@ func TestNewManagement(t *testing.T) {
 			name:             "normal",
 			accessJWTOptions: defaultOption,
 			wantPanic:        false,
-		},
-		{
-			name:             "accessJWTOptions_are_nil",
-			accessJWTOptions: nil,
-			wantPanic:        true,
 		},
 	}
 	for _, tt := range tests {
@@ -624,87 +535,6 @@ func TestNewManagement(t *testing.T) {
 				}
 			}()
 			NewManagement[data](tt.accessJWTOptions)
-		})
-	}
-}
-
-func TestWithIgnorePath(t *testing.T) {
-	type testCase[T any] struct {
-		name  string
-		fn    func() option.Option[Management[T]]
-		paths []string
-		want  []bool
-	}
-	tests := []testCase[data]{
-		{
-			name: "default",
-			fn: func() option.Option[Management[data]] {
-				return nil
-			},
-			paths: []string{"profile", "abc"},
-			want:  []bool{false, false},
-		},
-		{
-			name: "all_exists_paths",
-			fn: func() option.Option[Management[data]] {
-				return WithIgnorePath[data](defaultIgnorePaths)
-			},
-			paths: []string{"/login", "/signup"},
-			want:  []bool{true, true},
-		},
-		{
-			name: "one_path_does_not_exist",
-			fn: func() option.Option[Management[data]] {
-				return WithIgnorePath[data](defaultIgnorePaths)
-			},
-			paths: []string{"/login", "/profile", "/signup"},
-			want:  []bool{true, false, true},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var ignoreFn func(path string) bool
-			if tt.fn() == nil {
-				ignoreFn = NewManagement[data](
-					defaultOption,
-				).ignorePath
-			} else {
-				ignoreFn = NewManagement[data](
-					defaultOption,
-					tt.fn(),
-				).ignorePath
-			}
-			exists := make([]bool, 0, len(tt.paths))
-			for _, path := range tt.paths {
-				exists = append(exists, ignoreFn(path))
-			}
-			assert.Equal(t, tt.want, exists)
-		})
-	}
-}
-
-func TestStaticIgnorePaths(t *testing.T) {
-	tests := []struct {
-		name         string
-		paths        []string
-		requestPaths []string
-		want         []bool
-	}{
-		{
-			name:         "normal",
-			paths:        []string{"login", "signup"},
-			requestPaths: []string{"profile", "login", "info", "signup"},
-			want:         []bool{false, true, false, true},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotBool := make([]bool, 0, len(tt.want))
-			fn := StaticIgnorePaths(tt.paths...)
-			for _, path := range tt.requestPaths {
-				gotBool = append(gotBool, fn(path))
-			}
-			assert.Equal(t, tt.want, gotBool)
 		})
 	}
 }

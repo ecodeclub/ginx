@@ -15,13 +15,13 @@ func TestNewOptions(t *testing.T) {
 		name          string
 		expire        time.Duration
 		encryptionKey string
-		want          *Options
+		want          Options
 	}{
 		{
 			name:          "normal",
 			expire:        10 * time.Minute,
 			encryptionKey: "sign key",
-			want: &Options{
+			want: Options{
 				Expire:        10 * time.Minute,
 				EncryptionKey: "sign key",
 				DecryptKey:    "sign key",
