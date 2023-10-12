@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ecodeclub/ekit/bean/option"
-	"github.com/ecodeclub/ekit/set"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -17,24 +16,21 @@ import (
 const bearerPrefix = "Bearer"
 
 var (
-	ErrEmptyRefreshOpts = errors.New("refreshJWTOptions are nil")
+	errEmptyRefreshOpts = errors.New("refreshJWTOptions are nil")
 )
 
 type Management[T any] struct {
-	ignorePath          func(path string) bool // Middleware 方法中忽略认证的路径
-	allowTokenHeader    string                 // 认证的请求头(存放 token 的请求头 key)
-	exposeAccessHeader  string                 // 暴露到外部的资源请求头
-	exposeRefreshHeader string                 // 暴露到外部的刷新请求头
+	allowTokenHeader    string // 认证的请求头(存放 token 的请求头 key)
+	exposeAccessHeader  string // 暴露到外部的资源请求头
+	exposeRefreshHeader string // 暴露到外部的刷新请求头
 
-	accessJWTOptions   *Options // 资源 token 选项
-	refreshJWTOptions  *Options // 刷新 token 选项
-	rotateRefreshToken bool     // 轮换刷新令牌
-
-	nowFunc func() time.Time // 控制 jwt 的时间
+	accessJWTOptions   Options          // 资源 token 选项
+	refreshJWTOptions  *Options         // 刷新 token 选项
+	rotateRefreshToken bool             // 轮换刷新令牌
+	nowFunc            func() time.Time // 控制 jwt 的时间
 }
 
 // NewManagement 定义一个 Management.
-// ignorePath: 默认使用 func(path string) bool { return false } 也就是全部不忽略.
 // allowTokenHeader: 默认使用 authorization 为认证请求头.
 // exposeAccessHeader: 默认使用 x-access-token 为暴露外部的资源请求头.
 // exposeRefreshHeader: 默认使用 x-refresh-token 为暴露外部的刷新请求头.
@@ -42,12 +38,8 @@ type Management[T any] struct {
 // 如要使用 refresh 相关功能则需要使用 WithRefreshJWTOptions 添加相关配置.
 // rotateRefreshToken: 默认不轮换刷新令牌.
 // 该配置需要设置 refreshJWTOptions 才有效.
-func NewManagement[T any](accessJWTOptions *Options,
+func NewManagement[T any](accessJWTOptions Options,
 	opts ...option.Option[Management[T]]) *Management[T] {
-
-	if accessJWTOptions == nil {
-		panic("accessJWTOptions 不允许为 nil")
-	}
 	dOpts := defaultManagementOptions[T]()
 	dOpts.accessJWTOptions = accessJWTOptions
 	option.Apply[Management[T]](&dOpts, opts...)
@@ -57,33 +49,11 @@ func NewManagement[T any](accessJWTOptions *Options,
 
 func defaultManagementOptions[T any]() Management[T] {
 	return Management[T]{
-		ignorePath:          func(path string) bool { return false },
 		allowTokenHeader:    "authorization",
 		exposeAccessHeader:  "x-access-token",
 		exposeRefreshHeader: "x-refresh-token",
 		rotateRefreshToken:  false,
 		nowFunc:             time.Now,
-	}
-}
-
-// WithIgnorePath 设置忽略资源令牌认证的路径.
-func WithIgnorePath[T any](fn func(path string) bool) option.Option[Management[T]] {
-	return func(m *Management[T]) {
-		m.ignorePath = fn
-	}
-}
-
-// StaticIgnorePaths 设置静态忽略的路径.
-func StaticIgnorePaths(paths ...string) func(path string) bool {
-	s := set.NewMapSet[string](len(paths))
-	for _, path := range paths {
-		s.Add(path)
-	}
-	return func(path string) bool {
-		if s.Exist(path) {
-			return true
-		}
-		return false
 	}
 }
 
@@ -109,9 +79,9 @@ func WithExposeRefreshHeader[T any](header string) option.Option[Management[T]] 
 }
 
 // WithRefreshJWTOptions 设置刷新令牌相关的配置.
-func WithRefreshJWTOptions[T any](refreshOpts *Options) option.Option[Management[T]] {
+func WithRefreshJWTOptions[T any](refreshOpts Options) option.Option[Management[T]] {
 	return func(m *Management[T]) {
-		m.refreshJWTOptions = refreshOpts
+		m.refreshJWTOptions = &refreshOpts
 	}
 }
 
@@ -167,34 +137,9 @@ func (m *Management[T]) Refresh(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-// Middleware 登录认证的中间件.
-func (m *Management[T]) Middleware() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		// 不需要校验
-		if m.ignorePath(ctx.Request.URL.Path) {
-			return
-		}
-
-		// 提取 token
-		tokenStr := m.extractTokenString(ctx)
-		if tokenStr == "" {
-			slog.Debug("failed to extract token")
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		// 校验 token
-		clm, err := m.VerifyAccessToken(tokenStr,
-			jwt.WithTimeFunc(m.nowFunc))
-		if err != nil {
-			slog.Debug("access token verification failed")
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		// 设置 claims
-		m.SetClaims(ctx, clm)
-	}
+// MiddlewareBuilder 登录认证的中间件.
+func (m *Management[T]) MiddlewareBuilder() *MiddlewareBuilder[T] {
+	return newMiddlewareBuilder[T](m)
 }
 
 // extractTokenString 提取 token 字符串.
@@ -246,10 +191,10 @@ func (m *Management[T]) VerifyAccessToken(token string, opts ...jwt.ParserOption
 }
 
 // GenerateRefreshToken 生成刷新 token.
-// 需要设置 refreshJWTOptions 否则返回 ErrEmptyRefreshOpts 错误.
+// 需要设置 refreshJWTOptions 否则返回 errEmptyRefreshOpts 错误.
 func (m *Management[T]) GenerateRefreshToken(data T) (string, error) {
 	if m.refreshJWTOptions == nil {
-		return "", ErrEmptyRefreshOpts
+		return "", errEmptyRefreshOpts
 	}
 
 	nowTime := m.nowFunc()
@@ -268,10 +213,10 @@ func (m *Management[T]) GenerateRefreshToken(data T) (string, error) {
 }
 
 // VerifyRefreshToken 校验刷新 token.
-// 需要设置 refreshJWTOptions 否则返回 ErrEmptyRefreshOpts 错误.
+// 需要设置 refreshJWTOptions 否则返回 errEmptyRefreshOpts 错误.
 func (m *Management[T]) VerifyRefreshToken(token string, opts ...jwt.ParserOption) (RegisteredClaims[T], error) {
 	if m.refreshJWTOptions == nil {
-		return RegisteredClaims[T]{}, ErrEmptyRefreshOpts
+		return RegisteredClaims[T]{}, errEmptyRefreshOpts
 	}
 	t, err := jwt.ParseWithClaims(token, &RegisteredClaims[T]{},
 		func(*jwt.Token) (interface{}, error) {

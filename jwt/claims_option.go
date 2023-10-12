@@ -7,11 +7,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type RegisteredClaims[T any] struct {
-	Data T `json:"data"`
-	jwt.RegisteredClaims
-}
-
 type Options struct {
 	Expire        time.Duration     // 有效期
 	EncryptionKey string            // 加密密钥
@@ -25,7 +20,7 @@ type Options struct {
 // DecryptKey: 默认与 EncryptionKey 相同.
 // Method: 默认使用 jwt.SigningMethodHS256 签名方式.
 func NewOptions(expire time.Duration, encryptionKey string,
-	opts ...option.Option[Options]) *Options {
+	opts ...option.Option[Options]) Options {
 	dOpts := Options{
 		Expire:        expire,
 		EncryptionKey: encryptionKey,
@@ -36,7 +31,7 @@ func NewOptions(expire time.Duration, encryptionKey string,
 
 	option.Apply[Options](&dOpts, opts...)
 
-	return &dOpts
+	return dOpts
 }
 
 // WithDecryptKey 设置解密密钥.
