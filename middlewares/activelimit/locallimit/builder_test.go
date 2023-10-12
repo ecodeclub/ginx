@@ -15,13 +15,14 @@
 package locallimit
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLocalActiveLimit_Build(t *testing.T) {
@@ -33,10 +34,8 @@ func TestLocalActiveLimit_Build(t *testing.T) {
 		createMiddleware func(maxActive int64) gin.HandlerFunc
 		before           func(server *gin.Engine)
 
-		after func()
-		//响应的code
+		// 响应的code
 		wantCode int
-		//
 		interval time.Duration
 	}{
 		{
@@ -50,12 +49,7 @@ func TestLocalActiveLimit_Build(t *testing.T) {
 				require.NoError(t, err)
 				return req
 			},
-			before: func(server *gin.Engine) {
-
-			},
-			after: func() {
-
-			},
+			before: func(server *gin.Engine) {},
 
 			maxCount: 1,
 			wantCode: 200,
@@ -77,9 +71,6 @@ func TestLocalActiveLimit_Build(t *testing.T) {
 				resp := httptest.NewRecorder()
 				server.ServeHTTP(resp, req)
 				assert.Equal(t, 200, resp.Code)
-			},
-			after: func() {
-
 			},
 
 			maxCount: 1,
@@ -103,9 +94,7 @@ func TestLocalActiveLimit_Build(t *testing.T) {
 				server.ServeHTTP(resp, req)
 				assert.Equal(t, 200, resp.Code)
 			},
-			after: func() {
 
-			},
 			interval: time.Millisecond * 600,
 			maxCount: 1,
 			wantCode: http.StatusOK,
@@ -128,15 +117,12 @@ func TestLocalActiveLimit_Build(t *testing.T) {
 			go func() {
 				tc.before(server)
 			}()
-			//加延时保证 tc.before 执行
+			// 加延时保证 tc.before 执行
 			time.Sleep(time.Millisecond * 10)
 
 			time.Sleep(tc.interval)
 			server.ServeHTTP(resp, tc.getReq())
 			assert.Equal(t, tc.wantCode, resp.Code)
-
-			tc.after()
-
 		})
 	}
 

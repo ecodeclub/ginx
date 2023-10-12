@@ -26,18 +26,9 @@ var (
 			IssuedAt:  jwt.NewNumericDate(nowTime),
 		},
 	}
-	encryptionKey      = "sign key"
-	nowTime            = time.UnixMilli(1695571200000)
-	defaultOption      = NewOptions(defaultExpire, encryptionKey)
-	defaultIgnorePaths = func(path string) bool {
-		ignorePaths := []string{"/login", "/signup"}
-		for _, ignorePath := range ignorePaths {
-			if path == ignorePath {
-				return true
-			}
-		}
-		return false
-	}
+	encryptionKey     = "sign key"
+	nowTime           = time.UnixMilli(1695571200000)
+	defaultOption     = NewOptions(defaultExpire, encryptionKey)
 	defaultManagement = NewManagement[data](defaultOption,
 		WithNowFunc[data](func() time.Time {
 			return nowTime
@@ -801,5 +792,5 @@ func (m *Management[T]) registerRoutes(server *gin.Engine) {
 	server.GET("/login", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
-	server.GET("refresh", m.Refresh)
+	server.GET("/refresh", m.Refresh)
 }

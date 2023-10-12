@@ -15,15 +15,16 @@
 package locallimit
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/atomic"
-	"net/http"
 )
 
 type LocalActiveLimit struct {
-	//最大限制个数
+	// 最大限制个数
 	maxActive *atomic.Int64
-	//当前活跃个数
+	// 当前活跃个数
 	countActive *atomic.Int64
 }
 
@@ -33,11 +34,6 @@ func NewLocalActiveLimit(maxActive int64) *LocalActiveLimit {
 		maxActive:   atomic.NewInt64(maxActive),
 		countActive: atomic.NewInt64(0),
 	}
-}
-
-func (a *LocalActiveLimit) SetMaxActive(maxActive int64) *LocalActiveLimit {
-	a.maxActive.Store(maxActive)
-	return a
 }
 
 func (a *LocalActiveLimit) Build() gin.HandlerFunc {

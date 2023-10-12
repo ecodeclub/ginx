@@ -1,12 +1,13 @@
 package jwt
 
 import (
-	"github.com/ecodeclub/ekit/set"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/ecodeclub/ekit/set"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // MiddlewareBuilder 创建一个校验登录的 middleware
@@ -73,9 +74,6 @@ func staticIgnorePaths(paths ...string) func(path string) bool {
 		s.Add(path)
 	}
 	return func(path string) bool {
-		if s.Exist(path) {
-			return true
-		}
-		return false
+		return s.Exist(path)
 	}
 }

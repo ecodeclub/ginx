@@ -1,20 +1,22 @@
 package jwt
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMiddlewareBuilder_Build(t *testing.T) {
 	type testCase[T any] struct {
-		name       string
-		m          *Management[T]
-		reqBuilder func(t *testing.T) *http.Request
-		wantCode   int
+		name        string
+		m           *Management[T]
+		reqBuilder  func(t *testing.T) *http.Request
+		isUseIgnore bool
+		wantCode    int
 	}
 	tests := []testCase[data]{
 		{
@@ -46,19 +48,6 @@ func TestMiddlewareBuilder_Build(t *testing.T) {
 			wantCode: http.StatusUnauthorized,
 		},
 		{
-			// 无需认证直接通过
-			name: "pass_without_authentication",
-			m:    NewManagement[data](defaultOption),
-			reqBuilder: func(t *testing.T) *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/login", nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return req
-			},
-			wantCode: http.StatusOK,
-		},
-		{
 			// 验证通过
 			name: "pass_the_verification",
 			m: NewManagement[data](defaultOption,
@@ -76,12 +65,42 @@ func TestMiddlewareBuilder_Build(t *testing.T) {
 			},
 			wantCode: http.StatusOK,
 		},
+		{
+			// 无需认证直接通过
+			name: "pass_without_authentication",
+			m:    NewManagement[data](defaultOption),
+			reqBuilder: func(t *testing.T) *http.Request {
+				req, err := http.NewRequest(http.MethodGet, "/login", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return req
+			},
+			isUseIgnore: true,
+			wantCode:    http.StatusOK,
+		},
+		{
+			// 未使用忽略选项则进行拦截
+			name: "intercept_if_ignore_opt_is_not_used",
+			m:    NewManagement[data](defaultOption),
+			reqBuilder: func(t *testing.T) *http.Request {
+				req, err := http.NewRequest(http.MethodGet, "/login", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return req
+			},
+			wantCode: http.StatusUnauthorized,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := gin.Default()
-			server.Use(tt.m.MiddlewareBuilder().
-				IgnorePath("/login").Build())
+			m := tt.m.MiddlewareBuilder()
+			if tt.isUseIgnore {
+				m = m.IgnorePath("/login")
+			}
+			server.Use(m.Build())
 			tt.m.registerRoutes(server)
 
 			req := tt.reqBuilder(t)
