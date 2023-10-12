@@ -3,7 +3,9 @@ module github.com/ecodeclub/ginx
 go 1.21.1
 
 require (
+	github.com/ecodeclub/ekit v0.0.8
 	github.com/gin-gonic/gin v1.9.1
+	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/redis/go-redis/v9 v9.1.0
 	github.com/stretchr/testify v1.8.3
 	go.uber.org/atomic v1.11.0
