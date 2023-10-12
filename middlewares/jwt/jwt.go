@@ -3,26 +3,28 @@ package jwt
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/ecodeclub/ekit/bean/option"
 	"github.com/ecodeclub/ekit/set"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
+const bearerPrefix = "Bearer"
+
 var (
 	ErrEmptyRefreshOpts = errors.New("refreshJWTOptions are nil")
 )
 
-type Manager[T any] struct {
-	publicPaths         set.Set[string] // 存放不需要认证的 path
-	allowTokenHeader    string          // 认证的请求头(存放 token 的请求头 key)
-	bearerPrefix        string          // 拼接 token 的前缀
-	claimsCTXKey        string          // 存放到 gin.Context 的 key
-	exposeAccessHeader  string          // 暴露到外部的资源请求头
-	exposeRefreshHeader string          // 暴露到外部的刷新请求头
+type Management[T any] struct {
+	ignorePath          func(path string) bool // Middleware 方法中忽略认证的路径
+	allowTokenHeader    string                 // 认证的请求头(存放 token 的请求头 key)
+	exposeAccessHeader  string                 // 暴露到外部的资源请求头
+	exposeRefreshHeader string                 // 暴露到外部的刷新请求头
 
 	accessJWTOptions   *Options // 资源 token 选项
 	refreshJWTOptions  *Options // 刷新 token 选项
@@ -31,53 +33,32 @@ type Manager[T any] struct {
 	nowFunc func() time.Time // 控制 jwt 的时间
 }
 
-// NewManager 定义一个 JWTLoginManger
+// NewManagement 定义一个 Management.
+// ignorePath: 默认使用 func(path string) bool { return false } 也就是全部不忽略.
 // allowTokenHeader: 默认使用 authorization 为认证请求头.
-// bearerPrefix: 默认使用 Bearer 拼接 token.
-// claimsCTXKey: 默认使用 claims 为设置到 gin.Context 的key
 // exposeAccessHeader: 默认使用 x-access-token 为暴露外部的资源请求头.
 // exposeRefreshHeader: 默认使用 x-refresh-token 为暴露外部的刷新请求头.
 // refreshJWTOptions: 默认使用 nil 为刷新 token 的配置,
-// 如要使用 refresh 功能则需要使用 WithRefreshJWTOptions 添加相关配置.
+// 如要使用 refresh 相关功能则需要使用 WithRefreshJWTOptions 添加相关配置.
 // rotateRefreshToken: 默认不轮换刷新令牌.
 // 该配置需要设置 refreshJWTOptions 才有效.
-func NewManager[T any](accessJWTOptions *Options,
-	opts ...ManagerOption[T]) *Manager[T] {
-	dOpts := defaultManagerOption[T]()
-	dOpts.accessJWTOptions = accessJWTOptions
+func NewManagement[T any](accessJWTOptions *Options,
+	opts ...option.Option[Management[T]]) *Management[T] {
 
-	for _, opt := range opts {
-		opt.apply(&dOpts)
+	if accessJWTOptions == nil {
+		panic("accessJWTOptions 不允许为 nil")
 	}
+	dOpts := defaultManagementOptions[T]()
+	dOpts.accessJWTOptions = accessJWTOptions
+	option.Apply[Management[T]](&dOpts, opts...)
 
 	return &dOpts
 }
 
-type ManagerOption[T any] interface {
-	apply(*Manager[T])
-}
-
-type funcManagerOption[T any] struct {
-	f func(handler *Manager[T])
-}
-
-func (fdo *funcManagerOption[T]) apply(do *Manager[T]) {
-	fdo.f(do)
-}
-
-func newFuncManagerOption[T any](
-	f func(handler *Manager[T])) *funcManagerOption[T] {
-	return &funcManagerOption[T]{
-		f: f,
-	}
-}
-
-func defaultManagerOption[T any]() Manager[T] {
-	return Manager[T]{
-		publicPaths:         set.NewMapSet[string](0),
+func defaultManagementOptions[T any]() Management[T] {
+	return Management[T]{
+		ignorePath:          func(path string) bool { return false },
 		allowTokenHeader:    "authorization",
-		bearerPrefix:        "Bearer",
-		claimsCTXKey:        "claims",
 		exposeAccessHeader:  "x-access-token",
 		exposeRefreshHeader: "x-refresh-token",
 		rotateRefreshToken:  false,
@@ -85,91 +66,89 @@ func defaultManagerOption[T any]() Manager[T] {
 	}
 }
 
-// WithIgnorePaths 设置忽略资源令牌认证的路径.
-// 例如: '/login', '/api/v1/signup'.
-func WithIgnorePaths[T any](paths ...string) ManagerOption[T] {
+// WithIgnorePath 设置忽略资源令牌认证的路径.
+func WithIgnorePath[T any](fn func(path string) bool) option.Option[Management[T]] {
+	return func(m *Management[T]) {
+		m.ignorePath = fn
+	}
+}
+
+// StaticIgnorePaths 设置静态忽略的路径.
+func StaticIgnorePaths(paths ...string) func(path string) bool {
 	s := set.NewMapSet[string](len(paths))
 	for _, path := range paths {
 		s.Add(path)
 	}
-	return newFuncManagerOption[T](func(l *Manager[T]) {
-		l.publicPaths = s
-	})
+	return func(path string) bool {
+		if s.Exist(path) {
+			return true
+		}
+		return false
+	}
 }
 
 // WithAllowTokenHeader 设置允许 token 的请求头.
-func WithAllowTokenHeader[T any](header string) ManagerOption[T] {
-	return newFuncManagerOption[T](func(m *Manager[T]) {
+func WithAllowTokenHeader[T any](header string) option.Option[Management[T]] {
+	return func(m *Management[T]) {
 		m.allowTokenHeader = header
-	})
-}
-
-// WithBearerPrefix 设置与 token 拼接的前缀.
-// 例如: 'Bearer eyx.eyx.x'中的 'Bearer'.
-func WithBearerPrefix[T any](prefix string) ManagerOption[T] {
-	return newFuncManagerOption[T](func(m *Manager[T]) {
-		m.bearerPrefix = prefix
-	})
-}
-
-// WithClaimsCTXKey 设置放到 gin.Context 中的 key.
-func WithClaimsCTXKey[T any](key string) ManagerOption[T] {
-	return newFuncManagerOption[T](func(m *Manager[T]) {
-		m.claimsCTXKey = key
-	})
+	}
 }
 
 // WithExposeAccessHeader 设置公开资源令牌的请求头.
-func WithExposeAccessHeader[T any](header string) ManagerOption[T] {
-	return newFuncManagerOption[T](func(m *Manager[T]) {
+func WithExposeAccessHeader[T any](header string) option.Option[Management[T]] {
+	return func(m *Management[T]) {
 		m.exposeAccessHeader = header
-	})
+	}
 }
 
 // WithExposeRefreshHeader 设置公开刷新令牌的请求头.
-func WithExposeRefreshHeader[T any](header string) ManagerOption[T] {
-	return newFuncManagerOption[T](func(m *Manager[T]) {
+func WithExposeRefreshHeader[T any](header string) option.Option[Management[T]] {
+	return func(m *Management[T]) {
 		m.exposeRefreshHeader = header
-	})
+	}
 }
 
 // WithRefreshJWTOptions 设置刷新令牌相关的配置.
-func WithRefreshJWTOptions[T any](refreshOpts *Options) ManagerOption[T] {
-	return newFuncManagerOption(func(m *Manager[T]) {
+func WithRefreshJWTOptions[T any](refreshOpts *Options) option.Option[Management[T]] {
+	return func(m *Management[T]) {
 		m.refreshJWTOptions = refreshOpts
-	})
+	}
 }
 
 // WithRotateRefreshToken 设置轮换刷新令牌.
-func WithRotateRefreshToken[T any](isRotate bool) ManagerOption[T] {
-	return newFuncManagerOption(func(m *Manager[T]) {
+func WithRotateRefreshToken[T any](isRotate bool) option.Option[Management[T]] {
+	return func(m *Management[T]) {
 		m.rotateRefreshToken = isRotate
-	})
+	}
 }
 
 // WithNowFunc 设置当前时间.
-// 一般用于测试.
-func WithNowFunc[T any](nowFunc func() time.Time) ManagerOption[T] {
-	return newFuncManagerOption(func(m *Manager[T]) {
+// 一般用于测试固定 jwt.
+func WithNowFunc[T any](nowFunc func() time.Time) option.Option[Management[T]] {
+	return func(m *Management[T]) {
 		m.nowFunc = nowFunc
-	})
+	}
 }
 
-// Refresh 刷新 token 的 gin.HandlerFunc
-func (m *Manager[T]) Refresh(ctx *gin.Context) {
+// Refresh 刷新 token 的 gin.HandlerFunc.
+func (m *Management[T]) Refresh(ctx *gin.Context) {
 	if m.refreshJWTOptions == nil {
+		slog.Error("refreshJWTOptions 为 nil, 请使用 WithRefreshJWTOptions 设置 refresh 相关的配置")
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
 
 	tokenStr := m.extractTokenString(ctx)
-	clm, err := m.VerifyRefreshToken(tokenStr)
+	clm, err := m.VerifyRefreshToken(tokenStr,
+		jwt.WithTimeFunc(m.nowFunc))
 	if err != nil {
+		slog.Debug("refresh token verification failed")
 		ctx.Status(http.StatusUnauthorized)
 		return
 	}
 	accessToken, err := m.GenerateAccessToken(clm.Data)
 	if err != nil {
+		slog.Error("failed to generate access token")
 		ctx.Status(http.StatusInternalServerError)
 		return
 	}
@@ -179,44 +158,53 @@ func (m *Manager[T]) Refresh(ctx *gin.Context) {
 	if m.rotateRefreshToken {
 		refreshToken, err := m.GenerateRefreshToken(clm.Data)
 		if err != nil {
+			slog.Error("failed to generate refresh token")
 			ctx.Status(http.StatusInternalServerError)
 			return
 		}
 		ctx.Header(m.exposeRefreshHeader, refreshToken)
 	}
-	ctx.Status(http.StatusOK)
+	ctx.Status(http.StatusNoContent)
 }
 
-// MiddlewareBuilder 登录认证的中间件
-func (m *Manager[T]) MiddlewareBuilder() gin.HandlerFunc {
+// Middleware 登录认证的中间件.
+func (m *Management[T]) Middleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// 不需要校验
-		if m.publicPaths.Exist(ctx.Request.URL.Path) {
+		if m.ignorePath(ctx.Request.URL.Path) {
 			return
 		}
 
+		// 提取 token
 		tokenStr := m.extractTokenString(ctx)
 		if tokenStr == "" {
+			slog.Debug("failed to extract token")
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
-		err := m.verifyTokenAndSetClm(ctx, tokenStr)
+		// 校验 token
+		clm, err := m.VerifyAccessToken(tokenStr,
+			jwt.WithTimeFunc(m.nowFunc))
 		if err != nil {
+			slog.Debug("access token verification failed")
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+
+		// 设置 claims
+		m.SetClaims(ctx, clm)
 	}
 }
 
 // extractTokenString 提取 token 字符串.
-func (m *Manager[T]) extractTokenString(ctx *gin.Context) string {
+func (m *Management[T]) extractTokenString(ctx *gin.Context) string {
 	authCode := ctx.GetHeader(m.allowTokenHeader)
 	if authCode == "" {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString(m.bearerPrefix)
+	b.WriteString(bearerPrefix)
 	b.WriteString(" ")
 	prefix := b.String()
 	if strings.HasPrefix(authCode, prefix) {
@@ -225,26 +213,16 @@ func (m *Manager[T]) extractTokenString(ctx *gin.Context) string {
 	return ""
 }
 
-// verifyTokenAndSetClm 校验 access token 并把 claims 设置到 gin.Context 中.
-func (m *Manager[T]) verifyTokenAndSetClm(ctx *gin.Context, token string) error {
-	claims, err := m.VerifyAccessToken(token)
-	if err != nil {
-		return err
-	}
-	ctx.Set(m.claimsCTXKey, claims)
-	return nil
-}
-
 // GenerateAccessToken 生成资源 token.
-func (m *Manager[T]) GenerateAccessToken(data T) (string, error) {
+func (m *Management[T]) GenerateAccessToken(data T) (string, error) {
 	nowTime := m.nowFunc()
 	claims := RegisteredClaims[T]{
 		Data: data,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.accessJWTOptions.Issuer,
 			ExpiresAt: jwt.NewNumericDate(nowTime.Add(m.accessJWTOptions.Expire)),
-			NotBefore: jwt.NewNumericDate(nowTime),
 			IssuedAt:  jwt.NewNumericDate(nowTime),
+			ID:        m.accessJWTOptions.genIDFn(),
 		},
 	}
 
@@ -253,12 +231,12 @@ func (m *Manager[T]) GenerateAccessToken(data T) (string, error) {
 }
 
 // VerifyAccessToken 校验资源 token.
-func (m *Manager[T]) VerifyAccessToken(token string) (RegisteredClaims[T], error) {
+func (m *Management[T]) VerifyAccessToken(token string, opts ...jwt.ParserOption) (RegisteredClaims[T], error) {
 	t, err := jwt.ParseWithClaims(token, &RegisteredClaims[T]{},
 		func(*jwt.Token) (interface{}, error) {
 			return []byte(m.accessJWTOptions.DecryptKey), nil
 		},
-		jwt.WithTimeFunc(m.nowFunc),
+		opts...,
 	)
 	if err != nil || !t.Valid {
 		return RegisteredClaims[T]{}, fmt.Errorf("验证失败: %v", err)
@@ -269,7 +247,7 @@ func (m *Manager[T]) VerifyAccessToken(token string) (RegisteredClaims[T], error
 
 // GenerateRefreshToken 生成刷新 token.
 // 需要设置 refreshJWTOptions 否则返回 ErrEmptyRefreshOpts 错误.
-func (m *Manager[T]) GenerateRefreshToken(data T) (string, error) {
+func (m *Management[T]) GenerateRefreshToken(data T) (string, error) {
 	if m.refreshJWTOptions == nil {
 		return "", ErrEmptyRefreshOpts
 	}
@@ -280,8 +258,8 @@ func (m *Manager[T]) GenerateRefreshToken(data T) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.refreshJWTOptions.Issuer,
 			ExpiresAt: jwt.NewNumericDate(nowTime.Add(m.refreshJWTOptions.Expire)),
-			NotBefore: jwt.NewNumericDate(nowTime),
 			IssuedAt:  jwt.NewNumericDate(nowTime),
+			ID:        m.refreshJWTOptions.genIDFn(),
 		},
 	}
 
@@ -291,7 +269,7 @@ func (m *Manager[T]) GenerateRefreshToken(data T) (string, error) {
 
 // VerifyRefreshToken 校验刷新 token.
 // 需要设置 refreshJWTOptions 否则返回 ErrEmptyRefreshOpts 错误.
-func (m *Manager[T]) VerifyRefreshToken(token string) (RegisteredClaims[T], error) {
+func (m *Management[T]) VerifyRefreshToken(token string, opts ...jwt.ParserOption) (RegisteredClaims[T], error) {
 	if m.refreshJWTOptions == nil {
 		return RegisteredClaims[T]{}, ErrEmptyRefreshOpts
 	}
@@ -299,11 +277,16 @@ func (m *Manager[T]) VerifyRefreshToken(token string) (RegisteredClaims[T], erro
 		func(*jwt.Token) (interface{}, error) {
 			return []byte(m.refreshJWTOptions.DecryptKey), nil
 		},
-		jwt.WithTimeFunc(m.nowFunc),
+		opts...,
 	)
 	if err != nil || !t.Valid {
 		return RegisteredClaims[T]{}, fmt.Errorf("验证失败: %v", err)
 	}
 	clm, _ := t.Claims.(*RegisteredClaims[T])
 	return *clm, nil
+}
+
+// SetClaims 设置 claims 到 key=`claims` 的 gin.Context 中.
+func (m *Management[T]) SetClaims(ctx *gin.Context, claims RegisteredClaims[T]) {
+	ctx.Set("claims", claims)
 }
