@@ -13,6 +13,6 @@
 # limitations under the License.
 
 run:
-  go: '1.21'
+  go: '1.21.0-rc.3'
   skip-dirs:
     - .idea
