@@ -12,29 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Go
+#!/usr/bin/env bash
 
-on:
-  push:
-    branches: [ dev,main ]
-  pull_request:
-    branches: [ dev,main ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.21.1'
-
-      - name: Build
-        run: go build -v ./...
-
-      - name: Test
-        run: go test -race -coverprofile=cover.out -v ./...
-
-      - name: Post Coverage
-        uses: codecov/codecov-action@v2
+set -e
+docker compose -f script/integration_test_compose.yml down
+docker compose -f script/integration_test_compose.yml up -d
+go test  ./...  -tags=e2e
+docker compose -f script/integration_test_compose.yml down

@@ -25,7 +25,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/ecodeclub/ginx/internal/ratelimit"
-	"github.com/ecodeclub/ginx/internal/ratelimit/mocks"
+	limitmocks "github.com/ecodeclub/ginx/internal/ratelimit/mocks"
 )
 
 func TestBuilder_SetKeyGenFunc(t *testing.T) {

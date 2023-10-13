@@ -1,3 +1,17 @@
+// Copyright 2023 ecodeclub
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jwt
 
 import (
@@ -26,18 +40,9 @@ var (
 			IssuedAt:  jwt.NewNumericDate(nowTime),
 		},
 	}
-	encryptionKey      = "sign key"
-	nowTime            = time.UnixMilli(1695571200000)
-	defaultOption      = NewOptions(defaultExpire, encryptionKey)
-	defaultIgnorePaths = func(path string) bool {
-		ignorePaths := []string{"/login", "/signup"}
-		for _, ignorePath := range ignorePaths {
-			if path == ignorePath {
-				return true
-			}
-		}
-		return false
-	}
+	encryptionKey     = "sign key"
+	nowTime           = time.UnixMilli(1695571200000)
+	defaultOption     = NewOptions(defaultExpire, encryptionKey)
 	defaultManagement = NewManagement[data](defaultOption,
 		WithNowFunc[data](func() time.Time {
 			return nowTime
@@ -801,5 +806,5 @@ func (m *Management[T]) registerRoutes(server *gin.Engine) {
 	server.GET("/login", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
-	server.GET("refresh", m.Refresh)
+	server.GET("/refresh", m.Refresh)
 }

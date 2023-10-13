@@ -19,12 +19,13 @@ package integration
 import (
 	"context"
 	"fmt"
-	"github.com/ecodeclub/ginx/middlewares/activelimit/redislimit"
-	"github.com/redis/go-redis/v9"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/ecodeclub/ginx/middlewares/activelimit/redislimit"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

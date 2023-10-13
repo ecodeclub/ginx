@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Go
+name: Integration Test
 
 on:
   push:
-    branches: [ dev,main ]
+    branches: [ main, dev]
   pull_request:
-    branches: [ dev,main ]
+    branches: [ main, dev]
 
 jobs:
   build:
@@ -26,15 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v2
         with:
           go-version: '1.21.1'
 
-      - name: Build
-        run: go build -v ./...
-
       - name: Test
-        run: go test -race -coverprofile=cover.out -v ./...
-
-      - name: Post Coverage
-        uses: codecov/codecov-action@v2
+        run: sudo sh ./script/integrate_test.sh
