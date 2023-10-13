@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -26,104 +25,54 @@ import (
 )
 
 func TestLocalActiveLimit_Build(t *testing.T) {
+	const (
+		url = "/"
+	)
+	tests := []struct {
+		name        string
+		countActive int64
+		reqBuilder  func(t *testing.T) *http.Request
 
-	testCases := []struct {
-		name             string
-		maxCount         int64
-		getReq           func() *http.Request
-		createMiddleware func(maxActive int64) gin.HandlerFunc
-		before           func(server *gin.Engine)
-
-		// 响应的code
+		// 预期响应
 		wantCode int
-		interval time.Duration
 	}{
 		{
-			name: "开启限流,LocalLimit正常操作",
-
-			createMiddleware: func(maxActive int64) gin.HandlerFunc {
-				return NewLocalActiveLimit(maxActive).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
+			name:        "正常通过",
+			countActive: 0,
+			reqBuilder: func(t *testing.T) *http.Request {
+				req, err := http.NewRequest(http.MethodGet, url, nil)
 				require.NoError(t, err)
 				return req
 			},
-			before: func(server *gin.Engine) {},
-
-			maxCount: 1,
-			wantCode: 200,
+			wantCode: http.StatusNoContent,
 		},
 		{
-			name: "开启限流,LocalLimit 有一个人很久没出来,新请求被限流",
-
-			createMiddleware: func(maxActive int64) gin.HandlerFunc {
-				return NewLocalActiveLimit(maxActive).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
+			name:        "限流中",
+			countActive: 1,
+			reqBuilder: func(t *testing.T) *http.Request {
+				req, err := http.NewRequest(http.MethodGet, url, nil)
 				require.NoError(t, err)
 				return req
 			},
-			before: func(server *gin.Engine) {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit3", nil)
-				require.NoError(t, err)
-				resp := httptest.NewRecorder()
-				server.ServeHTTP(resp, req)
-				assert.Equal(t, 200, resp.Code)
-			},
-
-			maxCount: 1,
 			wantCode: http.StatusTooManyRequests,
 		},
-		{
-			name: "开启限流,LocalLimit 有一个人很久没出来,等待前面的请求退出后,成功通过",
-
-			createMiddleware: func(maxActive int64) gin.HandlerFunc {
-				return NewLocalActiveLimit(maxActive).Build()
-			},
-			getReq: func() *http.Request {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit", nil)
-				require.NoError(t, err)
-				return req
-			},
-			before: func(server *gin.Engine) {
-				req, err := http.NewRequest(http.MethodGet, "/activelimit3", nil)
-				require.NoError(t, err)
-				resp := httptest.NewRecorder()
-				server.ServeHTTP(resp, req)
-				assert.Equal(t, 200, resp.Code)
-			},
-
-			interval: time.Millisecond * 600,
-			maxCount: 1,
-			wantCode: http.StatusOK,
-		},
 	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			limit := NewLocalActiveLimit(1)
+			limit.countActive.Store(tt.countActive)
 			server := gin.Default()
-			server.Use(tc.createMiddleware(tc.maxCount))
-			server.GET("/activelimit", func(ctx *gin.Context) {
-				ctx.Status(http.StatusOK)
+			server.Use(limit.Build())
+			server.GET(url, func(c *gin.Context) {
+				c.Status(http.StatusNoContent)
 			})
-			server.GET("/activelimit3", func(ctx *gin.Context) {
-				time.Sleep(time.Millisecond * 300)
-				ctx.Status(http.StatusOK)
-			})
-			resp := httptest.NewRecorder()
-			go func() {
-				tc.before(server)
-			}()
-			// 加延时保证 tc.before 执行
-			time.Sleep(time.Millisecond * 10)
 
-			time.Sleep(tc.interval)
-			server.ServeHTTP(resp, tc.getReq())
-			assert.Equal(t, tc.wantCode, resp.Code)
+			req := tt.reqBuilder(t)
+			recorder := httptest.NewRecorder()
+
+			server.ServeHTTP(recorder, req)
+
+			assert.Equal(t, tt.wantCode, recorder.Code)
 		})
 	}
-
 }

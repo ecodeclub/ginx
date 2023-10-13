@@ -3,6 +3,6 @@
   "**/*.{yml,toml}": "# Copyright 2023 ecodeclub",
   "**/*.sh": "# Copyright 2023 ecodeclub",
   "ignore": [
-    "*.mock.go"
+    "**/*.mock.go"
   ]
 }
