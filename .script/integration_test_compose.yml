@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+# http:#www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,21 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Check License Lines
-on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-    branches:
-      - develop
-      - main
-      - dev
-jobs:
-  check-license-lines:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: denoland/setup-deno@v1
-        with:
-          deno-version: "1.40.4"
-      - uses: actions/checkout@v4
-      - name: Check license
-        run: deno run --allow-read https://deno.land/x/license_checker@v3.2.3/main.ts
+version: '3.0'
+
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "16379:6379"
