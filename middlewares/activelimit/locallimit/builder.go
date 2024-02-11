@@ -47,7 +47,5 @@ func (a *LocalActiveLimit) Build() gin.HandlerFunc {
 		} else {
 			ctx.AbortWithStatus(http.StatusTooManyRequests)
 		}
-		return
-
 	}
 }

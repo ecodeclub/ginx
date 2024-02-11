@@ -40,7 +40,7 @@ func NewRedisActiveLimit(cmd redis.Cmdable, maxActive int64, key string) *RedisA
 		key:       key,
 		cmd:       cmd,
 		logFn: func(msg any, args ...any) {
-			fmt.Println(fmt.Sprintf("%v  详细信息: %v", msg, args))
+			fmt.Printf("%v  详细信息: %v \n", msg, args)
 		},
 	}
 }
@@ -70,6 +70,5 @@ func (a *RedisActiveLimit) Build() gin.HandlerFunc {
 			a.logFn("web server ", "限流中..")
 			ctx.AbortWithStatus(http.StatusTooManyRequests)
 		}
-		return
 	}
 }

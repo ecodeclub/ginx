@@ -3,6 +3,8 @@
   "**/*.{yml,toml}": "# Copyright 2023 ecodeclub",
   "**/*.sh": "# Copyright 2023 ecodeclub",
   "ignore": [
-    "**/*.mock.go"
+    "internal/mocks/",
+    "session/provider.mock_test.go",
+    "internal/ratelimit/mocks/ratelimit.mock.go"
   ]
 }
