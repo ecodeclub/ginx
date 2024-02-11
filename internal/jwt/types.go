@@ -26,7 +26,7 @@ type Manager[T any] interface {
 
 	// Refresh 刷新 token 的 gin.HandlerFunc.
 	// 需要设置 refreshJWTOptions 否则会出现 500 的 http 状态码.
-	Refresh(ctx *gin.Context)
+	//Refresh(ctx *gin.Context)
 
 	// GenerateAccessToken 生成资源 token.
 	GenerateAccessToken(data T) (string, error)

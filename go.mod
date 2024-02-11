@@ -6,6 +6,7 @@ require (
 	github.com/ecodeclub/ekit v0.0.8
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.0.0
+	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.2.1
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/atomic v1.11.0

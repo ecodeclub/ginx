@@ -8,11 +8,11 @@ ut:
 
 .PHONY:	setup
 setup:
-	@sh ./script/setup.sh
+	@sh ./.script/setup.sh
 
 .PHONY:	fmt
 fmt:
-	@sh ./script/goimports.sh
+	@sh ./.script/goimports.sh
 
 .PHONY:	lint
 lint:
@@ -30,12 +30,15 @@ check:
 # e2e 测试
 .PHONY: e2e
 e2e:
-	sh ./script/integrate_test.sh
+	sh ./.script/integrate_test.sh
 
 .PHONY: e2e_up
 e2e_up:
-	docker compose -f script/integration_test_compose.yml up -d
+	docker compose -f .script/integration_test_compose.yml up -d
 
 .PHONY: e2e_down
 e2e_down:
-	docker compose -f script/integration_test_compose.yml down
+	docker compose -f .script/integration_test_compose.yml down
+mock:
+	mockgen -package=mocks -destination=internal/mocks/pipeline.mock.go github.com/redis/go-redis/v9 Pipeliner
+	mockgen -source=session/types.go -package=session -destination=session/provider.mock_test.go Provider

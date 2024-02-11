@@ -184,7 +184,6 @@ func (m *Management[T]) GenerateAccessToken(data T) (string, error) {
 			ID:        m.accessJWTOptions.genIDFn(),
 		},
 	}
-
 	token := jwt.NewWithClaims(m.accessJWTOptions.Method, claims)
 	return token.SignedString([]byte(m.accessJWTOptions.EncryptionKey))
 }
