@@ -119,7 +119,7 @@ func (b *Builder) Builder() gin.HandlerFunc {
 		}
 
 		defer func() {
-			accessLog.Duration = time.Now().Sub(start).String()
+			accessLog.Duration = time.Since(start).String()
 			//日志打印
 			b.loggerFunc(ctx, accessLog)
 		}()
