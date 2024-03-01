@@ -117,8 +117,8 @@ func NewSessionProvider(client redis.Cmdable, key string) *SessionProvider {
 		ijwt.WithRefreshJWTOptions[session.Claims](ijwt.NewOptions(expiration, key)))
 	return &SessionProvider{
 		client:      client,
-		atHeader:    "x-access-token",
-		rtHeader:    "x-refresh-token",
+		atHeader:    "X-Access-Token",
+		rtHeader:    "X-Refresh-Token",
 		tokenHeader: "Authorization",
 		m:           m,
 		expiration:  expiration,
