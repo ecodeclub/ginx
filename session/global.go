@@ -45,3 +45,7 @@ func SetDefaultProvider(sp Provider) {
 func CheckLoginMiddleware() gin.HandlerFunc {
 	return (&MiddlewareBuilder{sp: defaultProvider}).Build()
 }
+
+func RenewAccessToken(ctx *gctx.Context) error {
+	return defaultProvider.RenewAccessToken(ctx)
+}

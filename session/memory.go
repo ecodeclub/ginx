@@ -21,10 +21,21 @@ import (
 	"github.com/ecodeclub/ginx/internal/errs"
 )
 
+var _ Session = &MemorySession{}
+
 // MemorySession 一般用于测试
 type MemorySession struct {
 	data   map[string]any
 	claims Claims
+}
+
+func (m *MemorySession) Destroy(ctx context.Context) error {
+	return nil
+}
+
+func (m *MemorySession) Del(ctx context.Context, key string) error {
+	delete(m.data, key)
+	return nil
 }
 
 func NewMemorySession(cl Claims) *MemorySession {

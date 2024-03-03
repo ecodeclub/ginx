@@ -28,6 +28,10 @@ type Session interface {
 	Set(ctx context.Context, key string, val any) error
 	// Get 从 Session 中获取数据，注意，这个方法不会从 JWT 里面获取数据
 	Get(ctx context.Context, key string) ekit.AnyValue
+	// Del 删除对应的数据
+	Del(ctx context.Context, key string) error
+	// Destroy 销毁整个 Session
+	Destroy(ctx context.Context) error
 	// Claims 编码进去了 JWT 里面的数据
 	Claims() Claims
 }
@@ -41,8 +45,13 @@ type Provider interface {
 	NewSession(ctx *gctx.Context, uid int64, jwtData map[string]string,
 		sessData map[string]any) (Session, error)
 	// Get 尝试拿到 Session，如果没有，返回 error
-	// Get 本身并不校验 Session 的有效性
+	// Get 必须校验 Session 的合法性。
+	// 也就是，用户可以预期拿到的 Session 永远是没有过期，直接可用的
 	Get(ctx *gctx.Context) (Session, error)
+
+	// RenewAccessToken 刷新并且返回一个新的 access token
+	// 这个过程会校验长 token 的合法性
+	RenewAccessToken(ctx *gctx.Context) error
 }
 
 type Claims struct {

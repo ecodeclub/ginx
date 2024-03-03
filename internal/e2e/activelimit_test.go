@@ -14,7 +14,7 @@
 
 //go:build e2e
 
-package integration
+package e2e
 
 import (
 	"context"
@@ -25,19 +25,13 @@ import (
 	"time"
 
 	"github.com/ecodeclub/ginx/middlewares/activelimit/redislimit"
-	"github.com/redis/go-redis/v9"
-
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     "localhost:16379",
-		Password: "",
-		DB:       0,
-	})
+	redisClient := newRedisTestClient()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	err := redisClient.Ping(ctx).Err()
@@ -160,6 +154,7 @@ func TestBuilder_e2e_ActiveRedisLimit(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 		redisClient.Del(context.Background(), tc.key)
 		fmt.Println(redisClient.Get(context.Background(), tc.key).Int64())
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 
 			server := gin.Default()

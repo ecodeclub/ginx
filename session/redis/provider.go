@@ -15,83 +15,24 @@
 package redis
 
 import (
-	"context"
+	"errors"
 	"strings"
 	"time"
 
-	"github.com/ecodeclub/ekit"
+	"github.com/ecodeclub/ginx"
+
 	"github.com/ecodeclub/ginx/gctx"
-	"github.com/ecodeclub/ginx/internal/errs"
 	ijwt "github.com/ecodeclub/ginx/internal/jwt"
 	"github.com/ecodeclub/ginx/session"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
-// Session 生命周期应该和 http 请求保持一致
-// 注意该实现本身预加载了 Session 的所有数据
-type Session struct {
-	client redis.Cmdable
-	// key 是 ssid 拼接而成。注意，它不是 access token，也不是 refresh token
-	key        string
-	data       map[string]string
-	claims     session.Claims
-	expiration time.Duration
-}
+var (
+	keyRefreshToken = "refresh_token"
+)
 
-func newRedisSession(
-	ssid string,
-	expiration time.Duration,
-	client redis.Cmdable, cl session.Claims) *Session {
-	return &Session{
-		client:     client,
-		key:        "session:" + ssid,
-		expiration: expiration,
-		claims:     cl,
-	}
-}
-
-func (r *Session) Set(ctx context.Context, key string, val any) error {
-	return r.client.HMSet(ctx, r.key, key, val).Err()
-}
-
-func (r *Session) init(ctx context.Context, kvs map[string]any) error {
-	pip := r.client.Pipeline()
-	for k, v := range kvs {
-		pip.HMSet(ctx, r.key, k, v)
-	}
-	pip.Expire(ctx, r.key, r.expiration)
-	_, err := pip.Exec(ctx)
-	return err
-}
-
-func (r *Session) Get(ctx context.Context, key string) ekit.AnyValue {
-	val, ok := r.data[key]
-	if ok {
-		return ekit.AnyValue{Val: val}
-	}
-	return ekit.AnyValue{
-		// 报错
-		Err: errs.ErrSessionKeyNotFound,
-	}
-}
-
-func (r *Session) preload(ctx context.Context) error {
-	var err error
-	r.data, err = r.client.HGetAll(ctx, r.key).Result()
-	if err != nil {
-		return err
-	}
-	if len(r.data) == 0 {
-		return errs.ErrUnauthorized
-	}
-	return nil
-}
-
-func (r *Session) Claims() session.Claims {
-	return r.claims
-}
+var _ session.Provider = &SessionProvider{}
 
 // SessionProvider 默认是预加载机制，即 Get 的时候会顺便把所有的数据都拿过来
 // 默认情况下，产生的 Session 对应了两个 token，access token 和 refresh token
@@ -108,21 +49,36 @@ type SessionProvider struct {
 	expiration time.Duration
 }
 
-// NewSessionProvider 长短 token + session 机制。短 token 的过期时间是一小时
-// 长 token 的过期时间是 30 天
-func NewSessionProvider(client redis.Cmdable, key string) *SessionProvider {
-	// 长 token 过期时间，被看做是 Session 的过期时间
-	expiration := time.Hour * 24 * 30
-	m := ijwt.NewManagement[session.Claims](ijwt.NewOptions(time.Hour, key),
-		ijwt.WithRefreshJWTOptions[session.Claims](ijwt.NewOptions(expiration, key)))
-	return &SessionProvider{
-		client:      client,
-		atHeader:    "X-Access-Token",
-		rtHeader:    "X-Refresh-Token",
-		tokenHeader: "Authorization",
-		m:           m,
-		expiration:  expiration,
+func (rsp *SessionProvider) RenewAccessToken(ctx *ginx.Context) error {
+	// 此时这里应该放着 RefreshToken
+	rt := rsp.extractTokenString(ctx)
+	jwtClaims, err := rsp.m.VerifyRefreshToken(rt)
+	if err != nil {
+		return err
 	}
+	claims := jwtClaims.Data
+	sess := newRedisSession(claims.SSID, rsp.expiration, rsp.client, claims)
+	defer func() {
+		// refresh_token 只能用一次，不管成功与否
+		_ = sess.Del(ctx, keyRefreshToken)
+	}()
+	oldToken := sess.Get(ctx, keyRefreshToken).StringOrDefault("")
+	// 说明这个 rt 是已经用过的 refreshToken
+	// 或者 session 本身就已经过期了
+	if oldToken != rt {
+		return errors.New("refresh_token 已经过期")
+	}
+	accessToken, err := rsp.m.GenerateAccessToken(claims)
+	if err != nil {
+		return err
+	}
+	refreshToken, err := rsp.m.GenerateRefreshToken(claims)
+	if err != nil {
+		return err
+	}
+	ctx.Header(rsp.rtHeader, refreshToken)
+	ctx.Header(rsp.atHeader, accessToken)
+	return sess.Set(ctx, keyRefreshToken, refreshToken)
 }
 
 // NewSession 的时候，要先把这个 data 写入到对应的 token 里面
@@ -152,13 +108,13 @@ func (rsp *SessionProvider) NewSession(ctx *gctx.Context,
 		sessData = make(map[string]any, 2)
 	}
 	sessData["uid"] = uid
-	sessData["refresh_token"] = refreshToken
+	sessData[keyRefreshToken] = refreshToken
 	err = res.init(ctx, sessData)
 	return res, err
 }
 
 // extractTokenString 提取 token 字符串.
-func (rsp *SessionProvider) extractTokenString(ctx *gin.Context) string {
+func (rsp *SessionProvider) extractTokenString(ctx *ginx.Context) string {
 	authCode := ctx.GetHeader(rsp.tokenHeader)
 	const bearerPrefix = "Bearer "
 	if strings.HasPrefix(authCode, bearerPrefix) {
@@ -175,10 +131,27 @@ func (rsp *SessionProvider) Get(ctx *gctx.Context) (session.Session, error) {
 		return res, nil
 	}
 
-	claims, err := rsp.m.VerifyAccessToken(rsp.extractTokenString(ctx.Context))
+	claims, err := rsp.m.VerifyAccessToken(rsp.extractTokenString(ctx))
 	if err != nil {
 		return nil, err
 	}
 	res = newRedisSession(claims.Data.SSID, rsp.expiration, rsp.client, claims.Data)
-	return res, res.preload(ctx)
+	return res, nil
+}
+
+// NewSessionProvider 长短 token + session 机制。短 token 的过期时间是一小时
+// 长 token 的过期时间是 30 天
+func NewSessionProvider(client redis.Cmdable, jwtKey string) *SessionProvider {
+	// 长 token 过期时间，被看做是 Session 的过期时间
+	expiration := time.Hour * 24 * 30
+	m := ijwt.NewManagement[session.Claims](ijwt.NewOptions(time.Hour, jwtKey),
+		ijwt.WithRefreshJWTOptions[session.Claims](ijwt.NewOptions(expiration, jwtKey)))
+	return &SessionProvider{
+		client:      client,
+		atHeader:    "X-Access-Token",
+		rtHeader:    "X-Refresh-Token",
+		tokenHeader: "Authorization",
+		m:           m,
+		expiration:  expiration,
+	}
 }
