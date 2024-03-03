@@ -68,6 +68,34 @@ func (mr *MockSessionMockRecorder) Claims() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Claims", reflect.TypeOf((*MockSession)(nil).Claims))
 }
 
+// Del mocks base method.
+func (m *MockSession) Del(ctx context.Context, key string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Del", ctx, key)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Del indicates an expected call of Del.
+func (mr *MockSessionMockRecorder) Del(ctx, key any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockSession)(nil).Del), ctx, key)
+}
+
+// Destroy mocks base method.
+func (m *MockSession) Destroy(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Destroy", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Destroy indicates an expected call of Destroy.
+func (mr *MockSessionMockRecorder) Destroy(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockSession)(nil).Destroy), ctx)
+}
+
 // Get mocks base method.
 func (m *MockSession) Get(ctx context.Context, key string) ekit.AnyValue {
 	m.ctrl.T.Helper()
@@ -147,4 +175,18 @@ func (m *MockProvider) NewSession(ctx *gctx.Context, uid int64, jwtData map[stri
 func (mr *MockProviderMockRecorder) NewSession(ctx, uid, jwtData, sessData any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSession", reflect.TypeOf((*MockProvider)(nil).NewSession), ctx, uid, jwtData, sessData)
+}
+
+// RenewAccessToken mocks base method.
+func (m *MockProvider) RenewAccessToken(ctx *gctx.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenewAccessToken", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RenewAccessToken indicates an expected call of RenewAccessToken.
+func (mr *MockProviderMockRecorder) RenewAccessToken(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenewAccessToken", reflect.TypeOf((*MockProvider)(nil).RenewAccessToken), ctx)
 }

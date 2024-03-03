@@ -12,11 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build e2e
+
 package redis
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/ecodeclub/ginx/internal/e2e"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/ecodeclub/ginx/gctx"
 	"github.com/ecodeclub/ginx/internal/mocks"
@@ -28,11 +36,43 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+type ProviderTestSuite struct {
+	e2e.BaseSuite
+}
+
+func (s *ProviderTestSuite) TestRenewSession() {
+	sp := NewSessionProvider(s.RDB, "session")
+	req, err := http.NewRequest(http.MethodGet, "localhost:8080/hello", nil)
+	require.NoError(s.T(), err)
+	writer := httptest.NewRecorder()
+	gxCtx := &gctx.Context{
+		Context: &gin.Context{
+			Request: req,
+			Writer:  &e2e.GinResponseWriter{ResponseWriter: writer},
+		},
+	}
+	sess, err := sp.NewSession(gxCtx, 123, map[string]string{"jwtKey1": "jwtVal1"}, map[string]any{"sessKe1": "sessVal1"})
+	require.NoError(s.T(), err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err = sess.Set(ctx, "sessKey2", "sessVal2")
+	require.NoError(s.T(), err)
+	// 先把 refresh token 取出来，放过去 req 的 header，从而模拟 renew 的请求
+	rt := writer.Header().Get("X-Refresh-Token")
+	req.Header.Set("Authorization", "Bearer "+rt)
+	err = sp.RenewAccessToken(gxCtx)
+	require.NoError(s.T(), err)
+}
+
+func TestProvider(t *testing.T) {
+	suite.Run(t, new(ProviderTestSuite))
+}
+
+// 历史测试，后面考虑删了
 func TestSessionProvider_NewSession(t *testing.T) {
 	testCases := []struct {
-		name string
-		mock func(ctrl *gomock.Controller) redis.Cmdable
-
+		name    string
+		mock    func(ctrl *gomock.Controller) redis.Cmdable
 		key     string
 		wantErr error
 	}{
