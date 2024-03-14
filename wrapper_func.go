@@ -27,6 +27,10 @@ import (
 func W(fn func(ctx *Context) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		res, err := fn(&Context{Context: ctx})
+		if errors.Is(err, ErrNoResponse) {
+			slog.Debug("不需要响应", slog.Any("err", err))
+			return
+		}
 		if errors.Is(err, errs.ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
@@ -49,6 +53,10 @@ func B[Req any](fn func(ctx *Context, req Req) (Result, error)) gin.HandlerFunc 
 			return
 		}
 		res, err := fn(&Context{Context: ctx}, req)
+		if errors.Is(err, ErrNoResponse) {
+			slog.Debug("不需要响应", slog.Any("err", err))
+			return
+		}
 		if errors.Is(err, errs.ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
@@ -80,6 +88,10 @@ func BS[Req any](fn func(ctx *Context, req Req, sess session.Session) (Result, e
 			return
 		}
 		res, err := fn(gtx, req, sess)
+		if errors.Is(err, ErrNoResponse) {
+			slog.Debug("不需要响应", slog.Any("err", err))
+			return
+		}
 		// 如果里面有权限校验，那么会返回 401 错误（目前来看，主要是登录态校验）
 		if errors.Is(err, errs.ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
@@ -106,6 +118,10 @@ func S(fn func(ctx *Context, sess session.Session) (Result, error)) gin.HandlerF
 			return
 		}
 		res, err := fn(gtx, sess)
+		if errors.Is(err, ErrNoResponse) {
+			slog.Debug("不需要响应", slog.Any("err", err))
+			return
+		}
 		// 如果里面有权限校验，那么会返回 401 错误（目前来看，主要是登录态校验）
 		if errors.Is(err, errs.ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
