@@ -58,11 +58,9 @@ func (rsp *SessionProvider) RenewAccessToken(ctx *ginx.Context) error {
 	}
 	claims := jwtClaims.Data
 	sess := newRedisSession(claims.SSID, rsp.expiration, rsp.client, claims)
-	defer func() {
-		// refresh_token 只能用一次，不管成功与否
-		_ = sess.Del(ctx, keyRefreshToken)
-	}()
 	oldToken := sess.Get(ctx, keyRefreshToken).StringOrDefault("")
+	// refresh_token 只能用一次，不管成功与否
+	_ = sess.Del(ctx, keyRefreshToken)
 	// 说明这个 rt 是已经用过的 refreshToken
 	// 或者 session 本身就已经过期了
 	if oldToken != rt {
