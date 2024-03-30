@@ -38,10 +38,10 @@ func W(fn func(ctx *Context) (Result, error)) gin.HandlerFunc {
 		}
 		if err != nil {
 			slog.Error("执行业务逻辑失败", slog.Any("err", err))
-			ctx.JSON(http.StatusInternalServerError, res)
+			ctx.PureJSON(http.StatusInternalServerError, res)
 			return
 		}
-		ctx.JSON(http.StatusOK, res)
+		ctx.PureJSON(http.StatusOK, res)
 	}
 }
 
@@ -64,10 +64,10 @@ func B[Req any](fn func(ctx *Context, req Req) (Result, error)) gin.HandlerFunc 
 		}
 		if err != nil {
 			slog.Error("执行业务逻辑失败", slog.Any("err", err))
-			ctx.JSON(http.StatusInternalServerError, res)
+			ctx.PureJSON(http.StatusInternalServerError, res)
 			return
 		}
-		ctx.JSON(http.StatusOK, res)
+		ctx.PureJSON(http.StatusOK, res)
 	}
 }
 
@@ -100,10 +100,10 @@ func BS[Req any](fn func(ctx *Context, req Req, sess session.Session) (Result, e
 		}
 		if err != nil {
 			slog.Error("执行业务逻辑失败", slog.Any("err", err))
-			ctx.JSON(http.StatusInternalServerError, res)
+			ctx.PureJSON(http.StatusInternalServerError, res)
 			return
 		}
-		ctx.JSON(http.StatusOK, res)
+		ctx.PureJSON(http.StatusOK, res)
 	}
 }
 
@@ -130,9 +130,9 @@ func S(fn func(ctx *Context, sess session.Session) (Result, error)) gin.HandlerF
 		}
 		if err != nil {
 			slog.Error("执行业务逻辑失败", slog.Any("err", err))
-			ctx.JSON(http.StatusInternalServerError, res)
+			ctx.PureJSON(http.StatusInternalServerError, res)
 			return
 		}
-		ctx.JSON(http.StatusOK, res)
+		ctx.PureJSON(http.StatusOK, res)
 	}
 }
