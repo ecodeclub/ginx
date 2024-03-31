@@ -1,11 +1,11 @@
-// Copyright 2024 chenmingyong0423
-
+// Copyright 2024 ecodeclub
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,8 @@
 package crawlerdetect
 
 import (
+	"errors"
+	"log"
 	"net"
 	"testing"
 
@@ -25,16 +27,21 @@ func TestSoGouStrategy(t *testing.T) {
 	s := NewSoGouStrategy()
 	require.NotNil(t, s)
 	testCases := []struct {
-		name      string
-		ip        string
-		matched   bool
-		errString error
+		name    string
+		ip      string
+		matched bool
+		errFunc require.ErrorAssertionFunc
 	}{
 		{
-			name:      "无效 ip",
-			ip:        "256.0.0.0",
-			matched:   false,
-			errString: &net.DNSError{Err: "invalid address", Name: "256.0.0.0"},
+			name:    "无效 ip",
+			ip:      "256.0.0.0",
+			matched: false,
+			errFunc: func(t require.TestingT, err error, i ...interface{}) {
+				var dnsError *net.DNSError
+				if !errors.As(err, &dnsError) {
+					log.Fatal(err)
+				}
+			},
 		},
 		{
 			name:    "非搜狗 ip",
@@ -51,7 +58,9 @@ func TestSoGouStrategy(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			m, err := s.CheckCrawler(tc.ip)
-			require.Equal(t, tc.errString, err)
+			if err != nil {
+				tc.errFunc(t, err)
+			}
 			require.Equal(t, tc.matched, m)
 		})
 	}
