@@ -17,3 +17,4 @@ package ginx
 import "github.com/ecodeclub/ginx/internal/errs"
 
 var ErrNoResponse = errs.ErrNoResponse
+var ErrUnauthorized = errs.ErrUnauthorized

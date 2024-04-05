@@ -19,7 +19,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/ecodeclub/ginx/internal/errs"
 	"github.com/ecodeclub/ginx/session"
 	"github.com/gin-gonic/gin"
 )
@@ -31,7 +30,7 @@ func W(fn func(ctx *Context) (Result, error)) gin.HandlerFunc {
 			slog.Debug("不需要响应", slog.Any("err", err))
 			return
 		}
-		if errors.Is(err, errs.ErrUnauthorized) {
+		if errors.Is(err, ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -57,7 +56,7 @@ func B[Req any](fn func(ctx *Context, req Req) (Result, error)) gin.HandlerFunc 
 			slog.Debug("不需要响应", slog.Any("err", err))
 			return
 		}
-		if errors.Is(err, errs.ErrUnauthorized) {
+		if errors.Is(err, ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -93,7 +92,7 @@ func BS[Req any](fn func(ctx *Context, req Req, sess session.Session) (Result, e
 			return
 		}
 		// 如果里面有权限校验，那么会返回 401 错误（目前来看，主要是登录态校验）
-		if errors.Is(err, errs.ErrUnauthorized) {
+		if errors.Is(err, ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -123,7 +122,7 @@ func S(fn func(ctx *Context, sess session.Session) (Result, error)) gin.HandlerF
 			return
 		}
 		// 如果里面有权限校验，那么会返回 401 错误（目前来看，主要是登录态校验）
-		if errors.Is(err, errs.ErrUnauthorized) {
+		if errors.Is(err, ErrUnauthorized) {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
