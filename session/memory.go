@@ -17,6 +17,8 @@ package session
 import (
 	"context"
 
+	"github.com/ecodeclub/ginx/gctx"
+
 	"github.com/ecodeclub/ekit"
 	"github.com/ecodeclub/ginx/internal/errs"
 )
@@ -30,6 +32,10 @@ type MemorySession struct {
 }
 
 func (m *MemorySession) Destroy(ctx context.Context) error {
+	return nil
+}
+
+func (m *MemorySession) UpdateClaims(ctx *gctx.Context, claims Claims) error {
 	return nil
 }
 

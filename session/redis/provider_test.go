@@ -64,6 +64,67 @@ func (s *ProviderTestSuite) TestRenewSession() {
 	require.NoError(s.T(), err)
 }
 
+func TestSessionProvider_UpdateClaims(t *testing.T) {
+	testCases := []struct {
+		name    string
+		mock    func(ctrl *gomock.Controller) redis.Cmdable
+		wantErr error
+	}{
+		{
+			name: "更新成功",
+			mock: func(ctrl *gomock.Controller) redis.Cmdable {
+				cmd := mocks.NewMockCmdable(ctrl)
+				pip := mocks.NewMockPipeliner(ctrl)
+				pip.EXPECT().HMSet(gomock.Any(), gomock.Any(), gomock.Any()).
+					AnyTimes().Return(nil)
+				pip.EXPECT().Expire(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				pip.EXPECT().Exec(gomock.Any()).Return(nil, nil)
+				cmd.EXPECT().Pipeline().Return(pip)
+				return cmd
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			client := tc.mock(ctrl)
+			sp := NewSessionProvider(client, "123")
+			recorder := httptest.NewRecorder()
+
+			ctx, _ := gin.CreateTestContext(recorder)
+			// 先创建一个
+			_, err := sp.NewSession(&gctx.Context{
+				Context: ctx,
+			}, 123, map[string]string{"hello": "world"}, map[string]any{})
+
+			gtx := &gctx.Context{
+				Context: ctx,
+			}
+			newCl := session.Claims{
+				Uid:  234,
+				SSID: "ssid_123",
+				Data: map[string]string{"hello": "nihao"}}
+
+			err = sp.UpdateClaims(gtx, newCl)
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			token := ctx.Writer.Header().Get("X-Access-Token")
+			rc, err := sp.m.VerifyAccessToken(token)
+			require.NoError(t, err)
+			cl := rc.Data
+			assert.Equal(t, newCl, cl)
+			token = ctx.Writer.Header().Get("X-Refresh-Token")
+			rc, err = sp.m.VerifyAccessToken(token)
+			require.NoError(t, err)
+			cl = rc.Data
+			assert.Equal(t, newCl, cl)
+		})
+	}
+}
+
 func TestProvider(t *testing.T) {
 	suite.Run(t, new(ProviderTestSuite))
 }
@@ -101,8 +162,7 @@ func TestSessionProvider_NewSession(t *testing.T) {
 			ctx, _ := gin.CreateTestContext(recorder)
 			sess, err := sp.NewSession(&gctx.Context{
 				Context: ctx,
-			}, 123,
-				map[string]string{"hello": "world"}, map[string]any{})
+			}, 123, map[string]string{"hello": "world"}, map[string]any{})
 			assert.Equal(t, tc.wantErr, err)
 			if err != nil {
 				return
