@@ -34,8 +34,8 @@ var (
 
 var _ session.Provider = &SessionProvider{}
 
-// SessionProvider 默认是预加载机制，即 Get 的时候会顺便把所有的数据都拿过来
-// 默认情况下，产生的 Session 对应了两个 token，access token 和 refresh token
+// SessionProvider 默认情况下，产生的 Session 对应了两个 token，
+// access token 和 refresh token
 // 它们会被放进去 http.Response x-access-token 和 x-refresh-token 里面
 // 后续前端发送请求的时候，需要把 token 放到 Authorization 中，以 Bearer 的形式传过来
 // 很多字段并没有暴露，如果你需要自定义，可以发 issue
@@ -47,6 +47,21 @@ type SessionProvider struct {
 	rtHeader    string // 暴露到外部的刷新请求头
 	// 这个是长 token 的过期时间
 	expiration time.Duration
+}
+
+// UpdateClaims 在这个实现里面，claims 同时写进去了
+func (rsp *SessionProvider) UpdateClaims(ctx *gctx.Context, claims session.Claims) error {
+	accessToken, err := rsp.m.GenerateAccessToken(claims)
+	if err != nil {
+		return err
+	}
+	refreshToken, err := rsp.m.GenerateRefreshToken(claims)
+	if err != nil {
+		return err
+	}
+	ctx.Header(rsp.atHeader, accessToken)
+	ctx.Header(rsp.rtHeader, refreshToken)
+	return nil
 }
 
 func (rsp *SessionProvider) RenewAccessToken(ctx *ginx.Context) error {

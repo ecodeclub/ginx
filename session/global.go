@@ -49,3 +49,7 @@ func CheckLoginMiddleware() gin.HandlerFunc {
 func RenewAccessToken(ctx *gctx.Context) error {
 	return defaultProvider.RenewAccessToken(ctx)
 }
+
+func UpdateClaims(ctx *gctx.Context, claims Claims) error {
+	return defaultProvider.UpdateClaims(ctx, claims)
+}
