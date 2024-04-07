@@ -42,6 +42,10 @@ func SetDefaultProvider(sp Provider) {
 	defaultProvider = sp
 }
 
+func DefaultProvider() Provider {
+	return defaultProvider
+}
+
 func CheckLoginMiddleware() gin.HandlerFunc {
 	return (&MiddlewareBuilder{sp: defaultProvider}).Build()
 }
