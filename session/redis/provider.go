@@ -139,7 +139,8 @@ func (rsp *SessionProvider) extractTokenString(ctx *ginx.Context) string {
 // Get 返回 Session，如果没有拿到 session 或者 session 已经过期，会返回 error
 func (rsp *SessionProvider) Get(ctx *gctx.Context) (session.Session, error) {
 	val, _ := ctx.Get(session.CtxSessionKey)
-	res, ok := val.(*Session)
+	// 对接口断言，而不是对实现断言
+	res, ok := val.(session.Session)
 	if ok {
 		return res, nil
 	}
