@@ -82,3 +82,33 @@ func initRedis() redis.Cmdable {
 	})
 	return redisClient
 }
+
+func TestRedisSlidingWindowLimiter(t *testing.T) {
+	r := &RedisSlidingWindowLimiter{
+		Cmd:      initRedis(),
+		Interval: time.Second,
+		Rate:     1200,
+	}
+	var (
+		total      = 1500 // 总请求数
+		succCount  int    // 成功请求数
+		limitCount int    // 被限流的请求数
+	)
+	start := time.Now()
+	for i := 0; i < total; i++ {
+		limit, err := r.Limit(context.Background(), "test")
+		if err != nil {
+			t.Fatalf("limit error: %v", err)
+			return
+		}
+		if limit {
+			limitCount++
+			continue
+		}
+		succCount++
+	}
+	end := time.Now()
+	t.Logf("开始时间: %v", start.Format(time.StampMilli))
+	t.Logf("结束时间: %v", end.Format(time.StampMilli))
+	t.Logf("total: %d, succ: %d, limited: %d", total, succCount, limitCount)
+}
