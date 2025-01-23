@@ -28,7 +28,7 @@ var _ session.Session = &Session{}
 // Session 生命周期应该和 http 请求保持一致
 type Session struct {
 	client redis.Cmdable
-	// key 是 ssid 拼接而成。注意，它不是 access token，也不是 refresh token
+	// key 是 ssid 拼接而成。注意，它不是 access token
 	key        string
 	claims     session.Claims
 	expiration time.Duration

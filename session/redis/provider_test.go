@@ -17,8 +17,6 @@
 package redis
 
 import (
-	"context"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -38,30 +36,6 @@ import (
 
 type ProviderTestSuite struct {
 	e2e.BaseSuite
-}
-
-func (s *ProviderTestSuite) TestRenewSession() {
-	sp := NewSessionProvider(s.RDB, "session")
-	req, err := http.NewRequest(http.MethodGet, "localhost:8080/hello", nil)
-	require.NoError(s.T(), err)
-	writer := httptest.NewRecorder()
-	gxCtx := &gctx.Context{
-		Context: &gin.Context{
-			Request: req,
-			Writer:  &e2e.GinResponseWriter{ResponseWriter: writer},
-		},
-	}
-	sess, err := sp.NewSession(gxCtx, 123, map[string]string{"jwtKey1": "jwtVal1"}, map[string]any{"sessKe1": "sessVal1"})
-	require.NoError(s.T(), err)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	err = sess.Set(ctx, "sessKey2", "sessVal2")
-	require.NoError(s.T(), err)
-	// 先把 refresh token 取出来，放过去 req 的 header，从而模拟 renew 的请求
-	rt := writer.Header().Get("X-Refresh-Token")
-	req.Header.Set("Authorization", "Bearer "+rt)
-	err = sp.RenewAccessToken(gxCtx)
-	require.NoError(s.T(), err)
 }
 
 func TestSessionProvider_UpdateClaims(t *testing.T) {
@@ -89,7 +63,7 @@ func TestSessionProvider_UpdateClaims(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			client := tc.mock(ctrl)
-			sp := NewSessionProvider(client, "123")
+			sp := NewSessionProvider(client, "123", time.Minute)
 			recorder := httptest.NewRecorder()
 
 			ctx, _ := gin.CreateTestContext(recorder)
@@ -102,9 +76,10 @@ func TestSessionProvider_UpdateClaims(t *testing.T) {
 				Context: ctx,
 			}
 			newCl := session.Claims{
-				Uid:  234,
-				SSID: "ssid_123",
-				Data: map[string]string{"hello": "nihao"}}
+				Uid:        234,
+				SSID:       "ssid_123",
+				Expiration: 123,
+				Data:       map[string]string{"hello": "nihao"}}
 
 			err = sp.UpdateClaims(gtx, newCl)
 			assert.Equal(t, tc.wantErr, err)
@@ -115,11 +90,6 @@ func TestSessionProvider_UpdateClaims(t *testing.T) {
 			rc, err := sp.m.VerifyAccessToken(token)
 			require.NoError(t, err)
 			cl := rc.Data
-			assert.Equal(t, newCl, cl)
-			token = ctx.Writer.Header().Get("X-Refresh-Token")
-			rc, err = sp.m.VerifyAccessToken(token)
-			require.NoError(t, err)
-			cl = rc.Data
 			assert.Equal(t, newCl, cl)
 		})
 	}
@@ -157,7 +127,7 @@ func TestSessionProvider_NewSession(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			client := tc.mock(ctrl)
-			sp := NewSessionProvider(client, tc.key)
+			sp := NewSessionProvider(client, tc.key, time.Minute)
 			recorder := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(recorder)
 			sess, err := sp.NewSession(&gctx.Context{
@@ -172,6 +142,8 @@ func TestSessionProvider_NewSession(t *testing.T) {
 			cl := rs.Claims()
 			assert.True(t, len(cl.SSID) > 0)
 			cl.SSID = ""
+			assert.Greater(t, cl.Expiration, int64(0))
+			cl.Expiration = 0
 			assert.Equal(t, session.Claims{
 				Uid:  123,
 				Data: map[string]string{"hello": "world"},

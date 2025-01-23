@@ -51,13 +51,16 @@ type Provider interface {
 	// 也就是，用户可以预期拿到的 Session 永远是没有过期，直接可用的
 	Get(ctx *gctx.Context) (Session, error)
 
+	// Destroy 销毁 Session，一般用在退出登录这种地方
+	Destroy(ctx *gctx.Context) error
+
 	// UpdateClaims 修改 claims 的数据
 	// 但是因为 jwt 本身是不可变的，所以实际上这里是重新生成了一个 jwt 的 token
 	// 必须传入正确的 SSID
 	UpdateClaims(ctx *gctx.Context, claims Claims) error
 
 	// RenewAccessToken 刷新并且返回一个新的 access token
-	// 这个过程会校验长 token 的合法性
+	// 注意，必须是之前的 AccessToken 快要过期但是还没过期的时候
 	RenewAccessToken(ctx *gctx.Context) error
 }
 
@@ -65,6 +68,8 @@ type Claims struct {
 	Uid  int64
 	SSID string
 	Data map[string]string
+	// 过期时间。毫秒数
+	Expiration int64
 }
 
 func (c Claims) Get(key string) ekit.AnyValue {
@@ -73,4 +78,11 @@ func (c Claims) Get(key string) ekit.AnyValue {
 		return ekit.AnyValue{Err: errs.ErrSessionKeyNotFound}
 	}
 	return ekit.AnyValue{Val: val}
+}
+
+// TokenCarrier 用于决定是使用 Header 还是使用 Cookie 来作为
+type TokenCarrier interface {
+	Inject(ctx *gctx.Context, value string)
+	Extract(ctx *gctx.Context) string
+	Clear(ctx *gctx.Context)
 }

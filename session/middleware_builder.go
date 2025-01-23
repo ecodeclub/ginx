@@ -17,6 +17,7 @@ package session
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/ecodeclub/ginx/gctx"
 	"github.com/gin-gonic/gin"
@@ -25,15 +26,27 @@ import (
 // MiddlewareBuilder 登录校验
 type MiddlewareBuilder struct {
 	sp Provider
+	// 当 token 的有效时间少于这个值的时候，就会刷新一下 token
+	Threshold time.Duration
 }
 
 func (b *MiddlewareBuilder) Build() gin.HandlerFunc {
+	threshold := b.Threshold.Milliseconds()
 	return func(ctx *gin.Context) {
-		sess, err := b.sp.Get(&gctx.Context{Context: ctx})
+		ctxx := &gctx.Context{Context: ctx}
+		sess, err := b.sp.Get(ctxx)
 		if err != nil {
 			slog.Debug("未授权", slog.Any("err", err))
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
+		}
+		expiration := sess.Claims().Expiration
+		if expiration-time.Now().UnixMilli() < threshold {
+			// 刷新一个token
+			err = b.sp.RenewAccessToken(ctxx)
+			if err != nil {
+				slog.Warn("刷新 token 失败", slog.String("err", err.Error()))
+			}
 		}
 		ctx.Set(CtxSessionKey, sess)
 	}
