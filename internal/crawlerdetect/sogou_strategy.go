@@ -32,11 +32,8 @@ func NewSoGouStrategy() *SoGouStrategy {
 
 func (s *SoGouStrategy) CheckCrawler(ip string) (bool, error) {
 	names, err := net.LookupAddr(ip)
-	if err != nil {
+	if err != nil || len(names) == 0 {
 		return false, err
-	}
-	if len(names) == 0 {
-		return false, nil
 	}
 	return s.matchHost(names), nil
 }

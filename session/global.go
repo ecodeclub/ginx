@@ -15,6 +15,8 @@
 package session
 
 import (
+	"time"
+
 	"github.com/ecodeclub/ginx/gctx"
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +49,7 @@ func DefaultProvider() Provider {
 }
 
 func CheckLoginMiddleware() gin.HandlerFunc {
-	return (&MiddlewareBuilder{sp: defaultProvider}).Build()
+	return (&MiddlewareBuilder{sp: defaultProvider, Threshold: time.Minute * 30}).Build()
 }
 
 func RenewAccessToken(ctx *gctx.Context) error {

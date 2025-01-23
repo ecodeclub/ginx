@@ -133,6 +133,20 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
+// Destroy mocks base method.
+func (m *MockProvider) Destroy(ctx *gctx.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Destroy", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Destroy indicates an expected call of Destroy.
+func (mr *MockProviderMockRecorder) Destroy(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockProvider)(nil).Destroy), ctx)
+}
+
 // Get mocks base method.
 func (m *MockProvider) Get(ctx *gctx.Context) (Session, error) {
 	m.ctrl.T.Helper()
@@ -189,4 +203,65 @@ func (m *MockProvider) UpdateClaims(ctx *gctx.Context, claims Claims) error {
 func (mr *MockProviderMockRecorder) UpdateClaims(ctx, claims any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClaims", reflect.TypeOf((*MockProvider)(nil).UpdateClaims), ctx, claims)
+}
+
+// MockTokenCarrier is a mock of TokenCarrier interface.
+type MockTokenCarrier struct {
+	ctrl     *gomock.Controller
+	recorder *MockTokenCarrierMockRecorder
+}
+
+// MockTokenCarrierMockRecorder is the mock recorder for MockTokenCarrier.
+type MockTokenCarrierMockRecorder struct {
+	mock *MockTokenCarrier
+}
+
+// NewMockTokenCarrier creates a new mock instance.
+func NewMockTokenCarrier(ctrl *gomock.Controller) *MockTokenCarrier {
+	mock := &MockTokenCarrier{ctrl: ctrl}
+	mock.recorder = &MockTokenCarrierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockTokenCarrier) EXPECT() *MockTokenCarrierMockRecorder {
+	return m.recorder
+}
+
+// Clear mocks base method.
+func (m *MockTokenCarrier) Clear(ctx *gctx.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Clear", ctx)
+}
+
+// Clear indicates an expected call of Clear.
+func (mr *MockTokenCarrierMockRecorder) Clear(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*MockTokenCarrier)(nil).Clear), ctx)
+}
+
+// Extract mocks base method.
+func (m *MockTokenCarrier) Extract(ctx *gctx.Context) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Extract", ctx)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Extract indicates an expected call of Extract.
+func (mr *MockTokenCarrierMockRecorder) Extract(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Extract", reflect.TypeOf((*MockTokenCarrier)(nil).Extract), ctx)
+}
+
+// Inject mocks base method.
+func (m *MockTokenCarrier) Inject(ctx *gctx.Context, value string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Inject", ctx, value)
+}
+
+// Inject indicates an expected call of Inject.
+func (mr *MockTokenCarrierMockRecorder) Inject(ctx, value any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Inject", reflect.TypeOf((*MockTokenCarrier)(nil).Inject), ctx, value)
 }

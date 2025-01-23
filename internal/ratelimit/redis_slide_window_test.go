@@ -96,7 +96,7 @@ func TestRedisSlidingWindowLimiter(t *testing.T) {
 	)
 	start := time.Now()
 	for i := 0; i < total; i++ {
-		limit, err := r.Limit(context.Background(), "test")
+		limit, err := r.Limit(context.Background(), "TestRedisSlidingWindowLimiter")
 		if err != nil {
 			t.Fatalf("limit error: %v", err)
 			return

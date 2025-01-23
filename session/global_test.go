@@ -59,6 +59,7 @@ func TestCheckLoginMiddleware(t *testing.T) {
 	p := NewMockProvider(ctrl)
 	// 包变量的垃圾之处
 	SetDefaultProvider(p)
+	p.EXPECT().RenewAccessToken(gomock.Any()).AnyTimes().Return(nil)
 	defer SetDefaultProvider(nil)
 	server := gin.Default()
 	server.Use(CheckLoginMiddleware())
