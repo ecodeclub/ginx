@@ -30,4 +30,10 @@ type Result struct {
 	Data any    `json:"data"`
 }
 
+// DataList 用于返回批量查询的数据
+type DataList[T any] struct {
+	List  []T `json:"list"`
+	Total int `json:"total"`
+}
+
 type Context = gctx.Context

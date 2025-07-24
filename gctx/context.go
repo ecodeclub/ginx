@@ -42,3 +42,30 @@ func (c *Context) Cookie(key string) ekit.AnyValue {
 		Err: err,
 	}
 }
+
+func (c *Context) EventStreamResp() chan<- []byte {
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	eventCh := make(chan []byte)
+	go func() {
+		for {
+			select {
+			case eventData, ok := <-eventCh:
+				if !ok || len(eventData) == 0 {
+					return
+				}
+				c.sendEvent(eventData)
+			case <-c.Request.Context().Done():
+				close(eventCh)
+				return
+			}
+		}
+	}()
+	return eventCh
+}
+
+func (c *Context) sendEvent(data []byte) {
+	_, _ = c.Writer.Write(data)
+	c.Writer.Flush()
+}
