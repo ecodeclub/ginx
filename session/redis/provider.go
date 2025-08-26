@@ -67,10 +67,17 @@ func (rsp *SessionProvider) RenewAccessToken(ctx *ginx.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// 更新 claims 中的过期时间为当前时间加上配置的过期时间
 	claims := jwtClaims.Data
+	claims.Expiration = time.Now().Add(rsp.expiration).UnixMilli()
+
+	// 生成新的 access token
 	accessToken, err := rsp.m.GenerateAccessToken(claims)
 	rsp.TokenCarrier.Inject(ctx, accessToken)
-	return err
+
+	// redis 进行续期
+	return newRedisSession(claims.SSID, rsp.expiration, rsp.client, claims).Expire(ctx)
 }
 
 // NewSession 的时候，要先把这个 data 写入到对应的 token 里面

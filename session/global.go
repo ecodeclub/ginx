@@ -49,7 +49,7 @@ func DefaultProvider() Provider {
 }
 
 func CheckLoginMiddleware() gin.HandlerFunc {
-	return (&MiddlewareBuilder{sp: defaultProvider, Threshold: time.Minute * 30}).Build()
+	return NewMiddlewareBuilder(defaultProvider, WithThreshold(time.Minute*30)).Build()
 }
 
 func RenewAccessToken(ctx *gctx.Context) error {

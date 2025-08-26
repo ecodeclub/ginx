@@ -34,6 +34,8 @@ type Session interface {
 	Destroy(ctx context.Context) error
 	// Claims 编码进去了 JWT 里面的数据
 	Claims() Claims
+	// Expire session 续期
+	Expire(ctx context.Context) error
 }
 
 // Provider 定义了 Session 的整个管理机制。

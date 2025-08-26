@@ -67,3 +67,7 @@ func (m *MemorySession) Get(ctx context.Context, key string) ekit.AnyValue {
 func (m *MemorySession) Claims() Claims {
 	return m.claims
 }
+
+func (m *MemorySession) Expire(ctx context.Context) error {
+	return nil
+}

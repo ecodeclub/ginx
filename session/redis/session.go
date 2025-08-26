@@ -70,6 +70,10 @@ func (sess *Session) Claims() session.Claims {
 	return sess.claims
 }
 
+func (sess *Session) Expire(ctx context.Context) error {
+	return sess.client.Expire(ctx, sess.key, sess.expiration).Err()
+}
+
 func newRedisSession(
 	ssid string,
 	expiration time.Duration,
