@@ -76,8 +76,8 @@ func (rsp *SessionProvider) RenewAccessToken(ctx *ginx.Context) error {
 	accessToken, err := rsp.m.GenerateAccessToken(claims)
 	rsp.TokenCarrier.Inject(ctx, accessToken)
 
-	// redis 进行续期
-	return newRedisSession(claims.SSID, rsp.expiration, rsp.client, claims).Expire(ctx)
+	// Redis 续期 Session
+	return rsp.client.Expire(ctx, sessionKey(claims.SSID), rsp.expiration).Err()
 }
 
 // NewSession 的时候，要先把这个 data 写入到对应的 token 里面

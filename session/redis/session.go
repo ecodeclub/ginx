@@ -80,8 +80,12 @@ func newRedisSession(
 	client redis.Cmdable, cl session.Claims) *Session {
 	return &Session{
 		client:     client,
-		key:        "session:" + ssid,
+		key:        sessionKey(ssid),
 		expiration: expiration,
 		claims:     cl,
 	}
+}
+
+func sessionKey(ssid string) string {
+	return "session:" + ssid
 }
